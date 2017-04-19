@@ -65,11 +65,8 @@ def get_host_gene_cnv(host_gene_file, a, b, data_type="log2"):
     return data, a_group, b_group
 
 
-def cnv(hg=None, group=None, p=0.05, pm="logistic", method="logistic", tg=None, C=1, n_folds=3, criterion="aic",
-        penalty="l2",threshold=0, dt=None):
-    make_result_folder(hg=hg, group=group, p=p, root_dir=tg, fun=get_host_gene_cnv, which="cnv", method=method,
-                       prediction_method=pm, C=C, n_folds=n_folds, criterion=criterion, penalty=penalty, dt=dt,
-                       threshold=threshold)
+def cnv(args=None):
+    make_result_folder(args=args, fun=get_host_gene_cnv, which="cnv")
 if __name__ == "__main__":
     host_gene_file = "target_gene.txt"
     groups = ["CESC", "OV", "UCEC"]

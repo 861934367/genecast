@@ -14,6 +14,7 @@ from genecast_package.svm_analysis import feature_select, evaluate_model
 from sklearn.decomposition import PCA
 from collections import OrderedDict
 from collections import defaultdict
+import datetime
 import pandas as pd
 import os
 import sh
@@ -34,23 +35,23 @@ def z_score(data, axis):
         return z_scored.T
 
 
-def pheatmap(data, length, col_cluster=True, xticklabels=True, yticklabels=True, save="pdf", color=None, name=None):
+def pheatmap(data, length, col_cluster=True, xticklabels=True, yticklabels=True, color=None, name=None, args=None):
     data = z_score(data, axis=0)
     if len(data.columns) > 30:
         xticklabels = False
     if len(data) > 80:
         yticklabels = False
     vmin, vmax = data.unstack().quantile([.01, .99])
-    re = sns.clustermap(data, cmap="bwr", row_cluster=True, col_cluster=col_cluster, figsize=(13, 10), \
+    re = sns.clustermap(data, cmap="bwr", row_cluster=True, method=args.cluster_method, col_cluster=col_cluster, figsize=(13, 10), \
                         xticklabels=True, yticklabels=yticklabels, vmin=vmin, vmax=vmax, col_colors=color)
     re.ax_heatmap.set_xticklabels(re.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
     re.ax_heatmap.set_yticklabels(re.ax_heatmap.yaxis.get_majorticklabels(), rotation=0)
     if col_cluster == False:
         for group, number in length.items():
             re.ax_col_colors.text((number[0] + number[1])/2 - len(group)/2, 1.1, group, size=30)
-        re.savefig(name + "." + save)
+        re.savefig(name + "." + args.save)
     else:
-        re.savefig(name + "_col_cluster." + save)
+        re.savefig(name + "_col_cluster." + args.save)
     plt.close()
 
 
@@ -70,7 +71,7 @@ def make_col_color_heatmap(group_dic):
     return color, length
 
 
-def pca(data, group_dic, n=None):
+def pca(data, group_dic, n=None, args=None):
     pca = PCA(n_components=2)
     group = []
     length = OrderedDict()
@@ -96,7 +97,7 @@ def pca(data, group_dic, n=None):
     plt.close()
 
 
-def plot_box(data, which, outname, palette, regulation, group):
+def plot_box(data, which, outname, palette, regulation, group, args=None):
     fig, ax1 = plt.subplots(figsize=(8,12))
     box_data = defaultdict(list)
     if which == "cnv":
@@ -112,11 +113,11 @@ def plot_box(data, which, outname, palette, regulation, group):
     ax1.set_title(outname)
     ax1.set_ylabel('%s value(%s)' % (which, how))
     fig.autofmt_xdate(ha='center', rotation=0)
-    fig.savefig(r'%s_box_data_%s_%s_Boxplot.png' % (outname, regulation, how), dpi=600, size=0.5)
+    fig.savefig(r'%s_box_data_%s_%s_Boxplot.%s' % (outname, regulation, how, args.save), dpi=600, size=0.5)
     plt.close()
 
 
-def databox(raw, which, outname=None, group=None):
+def databox(raw, which, outname=None, group=None, args=None):
     palette = {}
     up = []; down = []
     group1_data = raw[list(group.values())[0]]
@@ -129,55 +130,75 @@ def databox(raw, which, outname=None, group=None):
             down.append(gene)
     for i, (name, g) in enumerate(group.items()):
         palette[name] = color[i]
-    plot_box(raw.ix[up], which, outname, palette, "up", group)
-    plot_box(raw.ix[down], which, outname, palette, "down", group)
+    plot_box(raw.ix[up], which, outname, palette, "up", group, args=args)
+    plot_box(raw.ix[down], which, outname, palette, "down", group, args=args)
 
 
-def save_data_pdf(data, name, length, color, group_dic, which):
+def save_data_pdf(data, name, length, color, group_dic, which, args=None):
     data.to_csv("%s.txt" % name, sep="\t")
     length = {key.split("/")[-1]: value for key, value in length.items()}
     group_dic = {key.split("/")[-1]: value for key, value in group_dic.items()}
-    pheatmap(data, length, col_cluster=True, color=color, name=name, save="png")
-    pheatmap(data, length, col_cluster=False, color=color, name=name, save="png")
-    pca(data, group_dic, n=name)
-    databox(data, which, outname=name, group=group_dic)
+    pheatmap(data, length, col_cluster=True, color=color, name=name, args=args)
+    pheatmap(data, length, col_cluster=False, color=color, name=name, args=args)
+    pca(data, group_dic, n=name, args=args)
+    databox(data, which, outname=name, group=group_dic, args=args)
 
 
-def make_result_folder(hg=None, group=None, p=0.05, root_dir=None, which="cnv", method="logistic", cal=None, fun=None,
-                       prediction_method=None, C=1, n_folds=5, criterion='aic', penalty="l2", dt=None, alpha=0.025, threshold=0):
+def save_parameters(args=None, which="cnv"):
+    f = open("parameters.txt", "w")
+    f.write("Important Parameters" + "\n" + 
+            "============================" + "\n")
+    f.write("group1:" + args.group1 + "\n" + "group2:" + args.group2 + "\n"  +
+            "host_gene:" + args.host_gene + "\n" + "what data:" + which + "\n" +
+            "feature_selection_method:" + args.feature_selection_method + "\n" + 
+            "prediction_method:" + args.prediction_method + "\n" + "outdir:" + args.outdir + "\n" + 
+            "data_type:"+ args.data_type + "\n"
+    )
+    f.write("Optional Parameters: not all parameters will be use, the used parameters according to Important Parameters" + "\n" + 
+            "============================" + "\n")
+    f.write("pvalue:" + str(args.pval) + "\n" + \
+    "penalty:" + args.penalty + "\n" + "C:" + str(args.C) + "\n" + "criterion:" + args.criterion + "\n" + \
+    "threshold:" + str(args.threshold) + "\n" + "n_folds:" + str(args.n_folds) + "\n")
+    f.close()
+
+
+def make_result_folder(args=None, which="cnv", fun=None):
     feature_genes = []; gene_lists = {}; color_length = {}
-    os.chdir(root_dir)
-    for two_group in itertools.combinations(group, 2):
-        target = two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1]
+    os.chdir(args.outdir)
+    i = datetime.datetime.now()
+    for two_group in itertools.combinations([args.group1, args.group2], 2):
+        target = two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1] + "_%s%s%s_%s%s" % (i.year, i.month, i.day, i.hour, i.minute)
         try:
-            os.mkdir(two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1])
+            os.mkdir(target)
         except FileExistsError:
             sh.rm("-rf",target)
-            os.mkdir(two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1])
+            os.mkdir(target)
         if which == "cnv":
-            name = "cnv_median_" + dt
-            gene_list, a_group, b_group = fun(hg, two_group[0], two_group[1], data_type=dt)
+            name = "cnv_median_" + args.data_type
+            gene_list, a_group, b_group = fun(args.host_gene, two_group[0], two_group[1], data_type=args.data_type)
         else:
-            if cal == "num":
+            if args.cal_type == "num":
                 name = "snv_number"
             else:
                 name = "snv_mean"
-            gene_list, a_group, b_group = fun(hg, two_group[0], two_group[1], cal, which)
-        feature_gene = feature_select(gene_list, a_group, b_group, pval=p, method=method,\
-                                      criterion=criterion, penalty=penalty, C=C, threshold=threshold)
+            gene_list, a_group, b_group = fun(args.host_gene, two_group[0], two_group[1], args.cal_type, which)
+        # feature_gene = feature_select(gene_list, a_group, b_group, pval=args.pval, method=args.feature_selection_method,\
+                                      # criterion=args.criterion, penalty=args.penalty, C=args.C, threshold=args.threshold)
+        feature_gene = feature_select(gene_list, a_group, b_group, args=args)
         feature_genes.append(feature_gene)
         gene_lists[two_group[0]] = gene_list[a_group]; gene_lists[two_group[1]] = gene_list[b_group]
         os.chdir(target)
+        save_parameters(args=args, which=which)
         group_dic = {two_group[0]: a_group, two_group[1]: b_group}
         color_length[two_group[0]] = a_group; color_length[two_group[1]] = b_group
         color, length = make_col_color_heatmap(group_dic)
-        save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which)
-        pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % p, sep="\t", index=False)
+        save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which, args=args)
+        pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % args.pval, sep="\t", index=False)
         feature_gene_cnv = gene_list.ix[feature_gene]
-        evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, method=prediction_method, C=C, n_folds=n_folds)
-        save_data_pdf(feature_gene_cnv, "feature_gene_%s" % name, length, color, group_dic, which)
-        os.chdir(root_dir)
-    if len(group) > 2:
+        evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, args=args, method=args.prediction_method, C=args.C, n_folds=args.n_folds)
+        save_data_pdf(feature_gene_cnv, "feature_gene_%s" % name, length, color, group_dic, which, args=args)
+        os.chdir(args.outdir)
+    if len([args.group1, args.group2]) > 2:
         try:
             os.mkdir("intersection")
         except FileExistsError:
@@ -185,9 +206,9 @@ def make_result_folder(hg=None, group=None, p=0.05, root_dir=None, which="cnv", 
         os.chdir("intersection")
         color, length = make_col_color_heatmap(color_length)
         intersection_feature_gene = list(set(feature_genes[0]).intersection(*feature_genes[1:]))
-        intersection_feature_gene_cnv = pd.concat([data.ix[intersection_feature_gene] for group, data in gene_lists.items()], axis=1)
+        intersection_feature_gene_cnv = pd.concat([data.ix[intersection_feature_gene] for [args.group1, args.group2], data in gene_lists.items()], axis=1)
         try:
             save_data_pdf(intersection_feature_gene_cnv, "intersection", length, color, color_length)
         except Exception:
             print("no intersection\njob finish...")
-        os.chdir(root_dir)
+        os.chdir(args.outdir)

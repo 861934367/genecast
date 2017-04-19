@@ -176,12 +176,10 @@ def circos_data(host_gene_file, root_dir, gene_location, groups, which="snv", ca
     make_karyotype(gene_list, unit)
 
 
-def snv(hg=None, group=None, p=0.05, method="logistic", pm="logistic", tg=None, C=1,
-            n_folds=3, criterion="aic", penalty="l2", threshold=0, dt="snv",
-            cal="num"):
-    make_result_folder(hg=hg, group=group, p=p, root_dir=tg, fun=get_host_gene_snv, which=dt, method=method,
-                       prediction_method=pm, C=C, n_folds=n_folds, criterion=criterion, penalty=penalty, dt=dt,
-                       threshold=threshold, cal=cal)
+def snv(args=None):
+    make_result_folder(args=args, fun=get_host_gene_snv, which=args.data_type)
+
+
 if __name__ == "__main__":
     host_gene_file = "panel6.bed"
     gene_location = "USCS_gene_location.txt"

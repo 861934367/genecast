@@ -7,7 +7,7 @@ import time
 from argparse import ArgumentParser
 import os
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 
 def main():
@@ -16,14 +16,16 @@ def main():
     subCommand = args.subcommand
     if subCommand == 'cnv':
         from genecast_package.cnv_analysis import cnv
-        cnv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
-            pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
-            criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type)
+        cnv(args=args)
+        # cnv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
+            # pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
+            # criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type)
     elif subCommand == "snv":
         from genecast_package.snv_analysis import snv
-        snv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
-            pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
-            criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type, cal=args.cal_type)
+        snv(args=args)
+        # snv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
+            # pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
+            # criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type, cal=args.cal_type)
     elif subCommand == "make_ln":
         from genecast_package.make_ln import ln
         ln(sf=args.sample_file, research=args.research)
@@ -125,7 +127,7 @@ def add_common_parameter(parser):
                         help='host gene file, please make sure it only contain one colomn and its title must be gene,'
                              'or panal bed file also be ok')
     parser.add_argument('-fsm', "--feature_selection_method", required=False,
-                        choices=('wilcox', 'pearsonr', "Lasso", "logistic", "RandomizedLasso"),
+                        choices=('wilcox', 'pearsonr', "Lasso", "logistic", "RandomizedLasso", "RandomForest", "Wrapper", "variance"),
                         type=str, default="logistic",
                         help='please choose a feature selection method, default is logistic')
     parser.add_argument('-threshold', required=False, type=float, default=0,
@@ -135,7 +137,7 @@ def add_common_parameter(parser):
                         help=''''bic' | 'aic' The type of criterion to use, default=aic''')
     parser.add_argument('-pm', "--prediction_method", required=False,
                         choices=('LinearSVC', 'SVC', "logistic"),
-                        type=str, default="LinearSVC", help='please choose a prediction method, default is LinearSVC')
+                        type=str, default="SVC", help='please choose a prediction method, default is SVC')
     parser.add_argument('-p', '--pval', required=False, default=0.05, type=float,
                         help='if the method of feature selection is statistical test, please provide this parameter,'
                              'default is 0.05')
@@ -146,6 +148,20 @@ def add_common_parameter(parser):
                         help='smaller values specify stronger regularization, default=1')
     parser.add_argument('-n', '--n_folds', required=False, type=int, default=3,
                         help='int, default=3 Number of folds. Must be at least 2')
+    parser.add_argument('-alpha', required=False, type=float, default=0.25,
+                        help='float, default=0.25 parameter for lasso.')
+    parser.add_argument('-ne', '--n_estimators', required=False, type=int, default=20,
+                        help='int, default=20 number of tree parameter for RandomForestRegressor.')
+    parser.add_argument('-nf', '--n_feature', required=False, type=int, default=15,
+                        help='int, default=15 number of feature')
+    parser.add_argument('-step', required=False, type=int, default=200,
+                        help='int, default=200 parameter for Wrapper_LogisticRegression')
+    parser.add_argument('-cluster_method', required=False, type=str, default="average",
+                        choices=('complete', 'average', "weighted", "single"),
+                        help='str, default=average parameter for cluster_method')
+    parser.add_argument('-save', required=False, type=str, default="png",
+                        choices=('png', 'pdf'),
+                        help='str, default=png parameter for save file format')
     add_output(parser)
 
 if __name__ == '__main__':

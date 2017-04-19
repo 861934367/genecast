@@ -14,6 +14,7 @@ from genecast_package.svm_analysis import feature_select, evaluate_model
 from sklearn.decomposition import PCA
 from collections import OrderedDict
 from collections import defaultdict
+import datetime
 import pandas as pd
 import os
 import sh
@@ -143,41 +144,46 @@ def save_data_pdf(data, name, length, color, group_dic, which):
     databox(data, which, outname=name, group=group_dic)
 
 
-def make_result_folder(hg=None, group=None, p=0.05, root_dir=None, which="cnv", method="logistic", cal=None, fun=None,
-                       prediction_method=None, C=1, n_folds=5, criterion='aic', penalty="l2", dt=None, alpha=0.025, threshold=0):
+def save_parameters(args=None, which="cnv"):
+    pass
+
+
+def make_result_folder(args=None, which="cnv", fun=None):
     feature_genes = []; gene_lists = {}; color_length = {}
-    os.chdir(root_dir)
-    for two_group in itertools.combinations(group, 2):
-        target = two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1]
+    os.chdir(args.outdir)
+    i = datetime.datetime.now()
+    for two_group in itertools.combinations([args.group1, args.group2], 2):
+        target = two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1] + "_%s%s%s_%s%s" % (i.year, i.month, i.day, i.hour, i.minute)
         try:
-            os.mkdir(two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1])
+            os.mkdir(target)
         except FileExistsError:
             sh.rm("-rf",target)
-            os.mkdir(two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1])
+            os.mkdir(target)
         if which == "cnv":
-            name = "cnv_median_" + dt
-            gene_list, a_group, b_group = fun(hg, two_group[0], two_group[1], data_type=dt)
+            name = "cnv_median_" + args.data_type
+            gene_list, a_group, b_group = fun(args.host_gene, two_group[0], two_group[1], data_type=args.data_type)
         else:
-            if cal == "num":
+            if args.cal_type == "num":
                 name = "snv_number"
             else:
                 name = "snv_mean"
-            gene_list, a_group, b_group = fun(hg, two_group[0], two_group[1], cal, which)
-        feature_gene = feature_select(gene_list, a_group, b_group, pval=p, method=method,\
-                                      criterion=criterion, penalty=penalty, C=C, threshold=threshold)
+            gene_list, a_group, b_group = fun(args.host_gene, two_group[0], two_group[1], args.cal_type, which)
+        feature_gene = feature_select(gene_list, a_group, b_group, pval=args.pval, method=args.feature_selection_method,\
+                                      criterion=args.criterion, penalty=args.penalty, C=args.C, threshold=args.threshold)
         feature_genes.append(feature_gene)
         gene_lists[two_group[0]] = gene_list[a_group]; gene_lists[two_group[1]] = gene_list[b_group]
         os.chdir(target)
+        save_parameters(args=args, which=which)
         group_dic = {two_group[0]: a_group, two_group[1]: b_group}
         color_length[two_group[0]] = a_group; color_length[two_group[1]] = b_group
         color, length = make_col_color_heatmap(group_dic)
         save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which)
-        pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % p, sep="\t", index=False)
+        pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % args.pval, sep="\t", index=False)
         feature_gene_cnv = gene_list.ix[feature_gene]
-        evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, method=prediction_method, C=C, n_folds=n_folds)
+        evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, method=args.prediction_method, C=args.C, n_folds=args.n_folds)
         save_data_pdf(feature_gene_cnv, "feature_gene_%s" % name, length, color, group_dic, which)
-        os.chdir(root_dir)
-    if len(group) > 2:
+        os.chdir(args.outdir)
+    if len([args.group1, args.group2]) > 2:
         try:
             os.mkdir("intersection")
         except FileExistsError:
@@ -185,9 +191,9 @@ def make_result_folder(hg=None, group=None, p=0.05, root_dir=None, which="cnv", 
         os.chdir("intersection")
         color, length = make_col_color_heatmap(color_length)
         intersection_feature_gene = list(set(feature_genes[0]).intersection(*feature_genes[1:]))
-        intersection_feature_gene_cnv = pd.concat([data.ix[intersection_feature_gene] for group, data in gene_lists.items()], axis=1)
+        intersection_feature_gene_cnv = pd.concat([data.ix[intersection_feature_gene] for [args.group1, args.group2], data in gene_lists.items()], axis=1)
         try:
             save_data_pdf(intersection_feature_gene_cnv, "intersection", length, color, color_length)
         except Exception:
             print("no intersection\njob finish...")
-        os.chdir(root_dir)
+        os.chdir(args.outdir)

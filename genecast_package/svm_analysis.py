@@ -13,6 +13,8 @@ from scipy.stats import pearsonr
 from sklearn.svm import LinearSVC, SVC
 from sklearn.linear_model import LassoLarsIC, LogisticRegression, RandomizedLasso
 from sklearn.feature_selection import RFE
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_curve, auc
@@ -24,6 +26,53 @@ warnings.filterwarnings("ignore")
 
 class MethodException(Exception):
     pass
+
+
+class LR(LogisticRegression):
+    def __init__(self, threshold=0.01, dual=False, tol=1e-4, C=1.0,
+                 fit_intercept=True, intercept_scaling=1, class_weight=None,
+                 random_state=None, solver='liblinear', max_iter=100,
+                 multi_class='ovr', verbose=0, warm_start=False, n_jobs=1):
+
+        # 权值相近的阈值
+        self.threshold = threshold
+        LogisticRegression.__init__(self, penalty='l1', dual=dual, tol=tol, C=C,
+                                    fit_intercept=fit_intercept, intercept_scaling=intercept_scaling,
+                                    class_weight=class_weight,
+                                    random_state=random_state, solver=solver, max_iter=max_iter,
+                                    multi_class=multi_class, verbose=verbose, warm_start=warm_start, n_jobs=n_jobs)
+        # 使用同样的参数创建L2逻辑回归
+        self.l2 = LogisticRegression(penalty='l2', dual=dual, tol=tol, C=C, fit_intercept=fit_intercept,
+                                     intercept_scaling=intercept_scaling, class_weight=class_weight,
+                                     random_state=random_state, solver=solver, max_iter=max_iter,
+                                     multi_class=multi_class, verbose=verbose, warm_start=warm_start, n_jobs=n_jobs)
+
+    def fit(self, X, y, sample_weight=None):
+        # 训练L1逻辑回归
+        super(LR, self).fit(X, y, sample_weight=sample_weight)
+        self.coef_old_ = self.coef_.copy()
+        # 训练L2逻辑回归
+        self.l2.fit(X, y, sample_weight=sample_weight)
+
+        cntOfRow, cntOfCol = self.coef_.shape
+        # 权值系数矩阵的行数对应目标值的种类数目
+        for i in range(cntOfRow):
+            for j in range(cntOfCol):
+                coef = self.coef_[i][j]
+                # L1逻辑回归的权值系数不为0
+                if coef != 0:
+                    idx = [j]
+                    # 对应在L2逻辑回归中的权值系数
+                    coef1 = self.l2.coef_[i][j]
+                    for k in range(cntOfCol):
+                        coef2 = self.l2.coef_[i][k]
+                        # 在L2逻辑回归中，权值系数之差小于设定的阈值，且在L1中对应的权值为0
+                        if abs(coef1 - coef2) < self.threshold and j != k and self.coef_[i][k] == 0:
+                            idx.append(k)
+                    # 计算这一类特征的权值系数均值
+                    mean = coef / len(idx)
+                    self.coef_[i][idx] = mean
+        return self
 
 
 def loop_choose_svm(data, group, n):
@@ -49,52 +98,95 @@ def get_train_test_data(data, group1, group2, feature_gene):
     group1_data = data.ix[feature_gene][group1]
     group2_data = data.ix[feature_gene][group2]
     X = pd.concat([group1_data, group2_data], axis=1).T.as_matrix()
-    y = [-1] * len(group1) + [1] * len(group2)
+    y = [0] * len(group1) + [1] * len(group2)
     return X, y
 
 
-def feature_select(data, group1, group2, pval=0.05, method="logistic", criterion='aic', penalty="l2", \
-                   C=1.0, threshold=0):
+def filter_variance(X, y, all_gene, args=None):
+    variances = VarianceThreshold().fit(X, y)
+    feature_gene = [gene for gene, variance in zip(all_gene, variances) if variance >= args.threshold]
+    return feature_gene
+
+
+def Wrapper_LogisticRegression(X, y, all_gene, args=None):
+    result = RFE(estimator=LogisticRegression(penalty=args.penalty, C=args.C), n_features_to_select=args.n_feature, step=args.step).fit(X, y)
+    feature_gene = [gene for gene, variance in zip(all_gene, *result) if result == True]
+    return feature_gene
+
+
+def Embedded_L1_L2(X, y, all_gene, args=None):
+    result = SelectFromModel(LR(threshold=0.5, C=0.1)).fit_transform(iris.data, iris.target)
+
+
+def mean_decrease_impurity(X, y, all_gene, args=None):
+    result = RandomForestRegressor(n_estimators=args.n_estimators, max_features=args.max_features).fit(X, y)
+    feature_gene = [gene for gene, importance in zip(all_gene, *result.feature_importances_) if importance >= args.threshold]
+    return feature_gene
+
+
+def Stability_selection(X, y, all_gene, args=None):
+    result = RandomizedLasso(alpha=args.alpha).fit(X, y)
+    feature_gene = [gene for gene, score in zip(all_gene, *result.scores_) if score >= args.threshold]
+    return feature_gene
+
+
+def lasso_regress(X, y, all_gene, args=None):
+    result = Lasso(alpha=args.alpha).fit(X, y)
+    feature_gene = [gene for gene, coef in zip(all_gene, *result.coef_) if coef >= args.threshold]
+    return feature_gene
+
+
+def logistic_regress(X, y, all_gene, args=None):
+    result = LogisticRegression(penalty=args.penalty, C=args.C)
+    feature_gene = [gene for gene, coef in zip(all_gene, *result.coef_) if coef >= args.threshold]
+    return feature_gene
+
+
+def feature_select(data, group1, group2, args=None):
     ## 选择特征基因，支持多种选择方法， 默认采用logistic回归拟合权重系数
-    regression_function = ["Lasso", "logistic", "RandomizedLasso"]
-    if method not in regression_function:
-        pearsonr_target = [-1] * len(group1) + [1] * len(group2)
+    base_function = ["wilcox", "pearsonr"]
+    if args.feature_selection_method in regression_function:
+        pearsonr_target = [0] * len(group1) + [1] * len(group2)
         result = {"gene": data.index, "a_vs_b": []}
         for x, y in zip(data[group1].as_matrix(), data[group2].as_matrix()):
-            if method == "wilcox":
+            if args.feature_selection_method == "wilcox":
                 z, p = ranksums(x, y)
-            elif method == "pearsonr":
+            elif args.feature_selection_method == "pearsonr":
                 cor, p = pearsonr(pearsonr_target, list(x) + list(y))
             else:
                 raise MethodException('must offer a right feature selection method')
             result["a_vs_b"].append(p)
         result = pd.DataFrame(result)
-        result = result.loc[result["a_vs_b"] <= pval]["gene"]
+        result = result.loc[result["a_vs_b"] <= args.pval]["gene"]
         if len(result) == 0:
             raise MethodException("the number of feature gene is 0, please choose your fsm or other parameter")
         return list(result)
     else:
         sc = StandardScaler()
-        X, y = get_train_test_data(data, group1, group2, data.index)
+        genes = data.index
+        X, y = get_train_test_data(data, group1, group2, genes)
         sc.fit(X)
         X_train_std = sc.transform(X)
-        genes = data.index
-        if method == "Lasso":
-            clf = LassoLarsIC(criterion=criterion)
-        elif method == "logistic":
-            clf = LogisticRegression(penalty=penalty, C=C)
-        elif method == "RandomizedLasso":
-            clf = RandomizedLasso()
+        if args.feature_selection_method == "Lasso":
+            feature_gene = lasso_regress(X_train_std, y, genes, args=args)
+        elif args.feature_selection_method == "logistic":
+            feature_gene = logistic_regress(X_train_std, y, genes, args=args)
+        elif args.feature_selection_method == "RandomizedLasso":
+            feature_gene = Stability_selection(X_train_std, y, genes, args=args)
+        elif args.feature_selection_method == "RandomForest":
+            feature_gene = mean_decrease_impurity(X_train_std, y, genes, args=args)
+        elif args.feature_selection_method == "Wrapper":
+            feature_gene = Wrapper_LogisticRegression(X_train_std, y, genes, args=args)
+        elif args.feature_selection_method == "variance":
+            feature_gene = filter_variance(X_train_std, y, genes, args=args)
         else:
             raise MethodException('must offer a right feature selection method')
-        clf.fit(X_train_std, y)
-        feature_gene = [gene for gene, value in zip(genes, *clf.coef_) if abs(value) >= threshold]
         if len(feature_gene) == 0:
             raise MethodException("the number of feature gene is 0, please choose your fsm or other parameter")
         return feature_gene
 
 
-def evaluate_model(data, group1, group2, feature_gene, name=None, method="LinearSVC", C=1, n_folds=5):
+def evaluate_model(data, group1, group2, feature_gene, args=None, name=None, method="LinearSVC", C=1, n_folds=5):
     X, y = get_train_test_data(data, group1, group2, feature_gene)
     if method == "LinearSVC":
         model = LinearSVC()

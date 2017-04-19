@@ -49,7 +49,7 @@ def get_train_test_data(data, group1, group2, feature_gene):
     group1_data = data.ix[feature_gene][group1]
     group2_data = data.ix[feature_gene][group2]
     X = pd.concat([group1_data, group2_data], axis=1).T.as_matrix()
-    y = [0] * len(group1) + [1] * len(group2)
+    y = [-1] * len(group1) + [1] * len(group2)
     return X, y
 
 
@@ -58,7 +58,7 @@ def feature_select(data, group1, group2, pval=0.05, method="logistic", criterion
     ## 选择特征基因，支持多种选择方法， 默认采用logistic回归拟合权重系数
     regression_function = ["Lasso", "logistic", "RandomizedLasso"]
     if method not in regression_function:
-        pearsonr_target = [0] * len(group1) + [1] * len(group2)
+        pearsonr_target = [-1] * len(group1) + [1] * len(group2)
         result = {"gene": data.index, "a_vs_b": []}
         for x, y in zip(data[group1].as_matrix(), data[group2].as_matrix()):
             if method == "wilcox":

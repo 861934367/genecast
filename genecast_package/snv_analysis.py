@@ -25,7 +25,7 @@ def merge_snp_indel(file, which):
              'ExAC_EAS', 'ExAC_FIN', 'ExAC_NFE', 'ExAC_OTH', 'ExAC_SAS',"CLINSIG","CLNDBN","CLNACC","CLNDSDB","CLNDSDBID",
              "gnomAD_exome_ALL", "gnomAD_exome_AFR", "gnomAD_exome_AMR", "gnomAD_exome_ASJ", "gnomAD_exome_EAS",
              "gnomAD_exome_FIN", "gnomAD_exome_NFE", "gnomAD_exome_OTH", "gnomAD_exome_SAS",
-             'Otherinfo', ".", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "ratio"]
+             'Otherinfo', ".", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "ratio"]
     if which == "snp":
         return pd.read_table(file, skiprows=1, names=title)
     elif which == "indel":
@@ -58,7 +58,7 @@ def filter(data, file_name, cal, circos=False):
     ratio = []
     for i in data["ratio"]:
         try:
-            ratio.append(i.split(":")[6])
+            ratio.append(i.split(":")[5])
         except AttributeError:
             ratio.append(None)
     data["ratio"] = ratio
@@ -96,7 +96,7 @@ def get_host_gene(host_gene_file):
 
 def _get_group_data(gene_data, g, cal, which, circos=False):
     group = []
-    for file in glob(g + "/*snp*fuction_hard.filtered.txt"):
+    for file in glob(g + "/*snp*hg19_multianno.txt"):
         file_name = file.split("/")[-1].split(".")[0]
         group.append(file_name)
         if circos:
@@ -176,12 +176,10 @@ def circos_data(host_gene_file, root_dir, gene_location, groups, which="snv", ca
     make_karyotype(gene_list, unit)
 
 
-def snv(hg=None, group=None, p=0.05, method="logistic", pm="logistic", tg=None, C=1,
-            n_folds=3, criterion="aic", penalty="l2", threshold=0, dt="snv",
-            cal="num"):
-    make_result_folder(hg=hg, group=group, p=p, root_dir=tg, fun=get_host_gene_snv, which=dt, method=method,
-                       prediction_method=pm, C=C, n_folds=n_folds, criterion=criterion, penalty=penalty, dt=dt,
-                       threshold=threshold, cal=cal)
+def snv(args=None):
+    make_result_folder(args=args, fun=get_host_gene_snv, which=args.data_type)
+
+
 if __name__ == "__main__":
     host_gene_file = "panel6.bed"
     gene_location = "USCS_gene_location.txt"
