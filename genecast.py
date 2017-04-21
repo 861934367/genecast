@@ -26,12 +26,12 @@ def main():
         # snv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
             # pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
             # criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type, cal=args.cal_type)
-    elif subCommand == "make_ln":
+    elif subCommand == "ln":
         from genecast_package.make_ln import ln
-        ln(sf=args.sample_file, research=args.research)
+        ln(args=args)
     elif subCommand == "fuanno":
         from genecast_package.fuan import fuanno
-        fuan(args=args)
+        fuanno(args=args)
     elif subCommand == "prediction":
         pass
 
@@ -66,7 +66,7 @@ def add_output(parser):
 
 
 def add_make_ln(subparser):
-    parser = subparser.add_parser('make_ln', help='make ln module, the template file please contact the author')
+    parser = subparser.add_parser('ln', help='make ln module, the template file please contact the author')
     parser.add_argument('-sf', '--sample_file', required=True, help='the dir of group1', type=str)
     parser.add_argument('-r', '--research', choices=("yes", "no"), required=False, default="yes",
                         help='if you sample is scientific research cooperation please choose yes,else choose no')
@@ -74,7 +74,7 @@ def add_make_ln(subparser):
 
 def add_anno_fusion(subparser):
     parser = subparser.add_parser('fuanno', help='anno fusion resulut of breakdancer module, the fusion resulut please contact the author')
-    parser.add_argument('-fusion', required=True, help='the fusion resulut files', type=str)
+    parser.add_argument('fusion_files', nargs='*', help="fusion resulut of breakdancer files (.fusion)")
     parser.add_argument('-gff', required=True, help='the gff file', type=str)
     parser.add_argument('-p', '--progress', required=False, default=1, type=int,
                         help='parallel anno fusion result')
@@ -106,8 +106,10 @@ def add_prediction(subparser):
 
 def add_snv(subparser):
     parser = subparser.add_parser('snv', help='snv analysis module')
-    parser.add_argument('-a', '--group1', required=True, help='the dir of group1', type=str)
-    parser.add_argument('-b', '--group2', required=True, help='the dir of group2', type=str)
+    parser.add_argument('group1', , nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.vcf)")
+    parser.add_argument('group2', , nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.vcf)")
+    # parser.add_argument('-a', '--group1', required=True, help='the dir of group1', type=str)
+    # parser.add_argument('-b', '--group2', required=True, help='the dir of group2', type=str)
     # snv参数
     parser.add_argument("-cal", '--cal_type', default='num', type=str,
                         choices=('num', 'mean'),
@@ -115,14 +117,19 @@ def add_snv(subparser):
     parser.add_argument("-dt", '--data_type', default='snv', type=str,
                         choices=('snv', 'snp', "indel"),
                         help='snv contain snp and indel  default=snv')
+    parser.add_argument("-somatic", default='Y', type=str,
+                        choices=('y', 'n'),
+                        help='if you only have Blood cell and cfdna you should choose n else you have Blood cell and cfdna you should choose y; default=y')
     add_common_parameter(parser)
 
 
 def add_cnv(subparser):
     parser = subparser.add_parser('cnv', help='cnv analysis module')
-    parser.add_argument('-a', '--group1', required=True, help='the dir of group1', type=str)
+    parser.add_argument('group1', , nargs='*', help="cnv resulut of cnvkit files (*.cnr)")
+    parser.add_argument('group2', , nargs='*', help="cnv resulut of cnvkit files (*.cnr)")
+    # parser.add_argument('-a', '--group1', required=True, help='the dir of group1', type=str)
 
-    parser.add_argument('-b', '--group2', required=True, help='the dir of group2', type=str)
+    # parser.add_argument('-b', '--group2', required=True, help='the dir of group2', type=str)
     # cnv参数
     parser.add_argument("-dt", '--data_type', default='log2', type=str,
                         choices=('log2', 'cn'),

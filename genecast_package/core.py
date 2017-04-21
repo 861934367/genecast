@@ -144,12 +144,12 @@ def save_data_pdf(data, name, length, color, group_dic, which, args=None):
     databox(data, which, outname=name, group=group_dic, args=args)
 
 
-def save_parameters(args=None, which="cnv"):
+def save_parameters(args=None):
     f = open("parameters.txt", "w")
     f.write("Important Parameters" + "\n" + 
             "============================" + "\n")
     f.write("group1:" + args.group1 + "\n" + "group2:" + args.group2 + "\n"  +
-            "host_gene:" + args.host_gene + "\n" + "what data:" + which + "\n" +
+            "host_gene:" + args.host_gene + "\n" +
             "feature_selection_method:" + args.feature_selection_method + "\n" + 
             "prediction_method:" + args.prediction_method + "\n" + "outdir:" + args.outdir + "\n" + 
             "data_type:"+ args.data_type + "\n"
@@ -166,49 +166,50 @@ def make_result_folder(args=None, which="cnv", fun=None):
     feature_genes = []; gene_lists = {}; color_length = {}
     os.chdir(args.outdir)
     i = datetime.datetime.now()
-    for two_group in itertools.combinations([args.group1, args.group2], 2):
-        target = two_group[0].split("/")[-1] + "_VS_" + two_group[1].split("/")[-1] + "_%s%s%s_%s%s" % (i.year, i.month, i.day, i.hour, i.minute)
-        try:
-            os.mkdir(target)
-        except FileExistsError:
-            sh.rm("-rf",target)
-            os.mkdir(target)
-        if which == "cnv":
-            name = "cnv_median_" + args.data_type
-            gene_list, a_group, b_group = fun(args.host_gene, two_group[0], two_group[1], data_type=args.data_type)
+    # for two_group in itertools.combinations([args.group1, args.group2], 2):
+    two_group = [args.group1[0].split("/")[-2], args.group2[0].split("/")[-2]]
+    target = args.group1[0].split("/")[-2] + "_VS_" + args.group2[0].split("/")[-2] + "_%s%s%s_%s%s" % (i.year, i.month, i.day, i.hour, i.minute)
+    try:
+        os.mkdir(target)
+    except FileExistsError:
+        sh.rm("-rf",target)
+        os.mkdir(target)
+    if which == "cnv":
+        name = "cnv_median_" + args.data_type
+        gene_list, a_group, b_group = fun(args=args)
+    else:
+        if args.cal_type == "num":
+            name = "snv_number"
         else:
-            if args.cal_type == "num":
-                name = "snv_number"
-            else:
-                name = "snv_mean"
-            gene_list, a_group, b_group = fun(args.host_gene, two_group[0], two_group[1], args.cal_type, which)
-        # feature_gene = feature_select(gene_list, a_group, b_group, pval=args.pval, method=args.feature_selection_method,\
-                                      # criterion=args.criterion, penalty=args.penalty, C=args.C, threshold=args.threshold)
-        feature_gene = feature_select(gene_list, a_group, b_group, args=args)
-        feature_genes.append(feature_gene)
-        gene_lists[two_group[0]] = gene_list[a_group]; gene_lists[two_group[1]] = gene_list[b_group]
-        os.chdir(target)
-        save_parameters(args=args, which=which)
-        group_dic = {two_group[0]: a_group, two_group[1]: b_group}
-        color_length[two_group[0]] = a_group; color_length[two_group[1]] = b_group
-        color, length = make_col_color_heatmap(group_dic)
-        save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which, args=args)
-        pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % args.pval, sep="\t", index=False)
-        feature_gene_cnv = gene_list.ix[feature_gene]
-        evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, args=args, method=args.prediction_method, C=args.C, n_folds=args.n_folds)
-        save_data_pdf(feature_gene_cnv, "feature_gene_%s" % name, length, color, group_dic, which, args=args)
-        os.chdir(args.outdir)
-    if len([args.group1, args.group2]) > 2:
-        try:
-            os.mkdir("intersection")
-        except FileExistsError:
-            pass
-        os.chdir("intersection")
-        color, length = make_col_color_heatmap(color_length)
-        intersection_feature_gene = list(set(feature_genes[0]).intersection(*feature_genes[1:]))
-        intersection_feature_gene_cnv = pd.concat([data.ix[intersection_feature_gene] for [args.group1, args.group2], data in gene_lists.items()], axis=1)
-        try:
-            save_data_pdf(intersection_feature_gene_cnv, "intersection", length, color, color_length)
-        except Exception:
-            print("no intersection\njob finish...")
-        os.chdir(args.outdir)
+            name = "snv_mean"
+        gene_list, a_group, b_group = fun(args=args)
+    # feature_gene = feature_select(gene_list, a_group, b_group, pval=args.pval, method=args.feature_selection_method,\
+                                  # criterion=args.criterion, penalty=args.penalty, C=args.C, threshold=args.threshold)
+    feature_gene = feature_select(gene_list, a_group, b_group, args=args)
+    feature_genes.append(feature_gene)
+    gene_lists[two_group[0]] = gene_list[a_group]; gene_lists[two_group[1]] = gene_list[b_group]
+    os.chdir(target)
+    save_parameters(args=args)
+    group_dic = {two_group[0]: a_group, two_group[1]: b_group}
+    color_length[two_group[0]] = a_group; color_length[two_group[1]] = b_group
+    color, length = make_col_color_heatmap(group_dic)
+    save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which, args=args)
+    pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % args.pval, sep="\t", index=False)
+    feature_gene_cnv = gene_list.ix[feature_gene]
+    evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, args=args, method=args.prediction_method, C=args.C, n_folds=args.n_folds)
+    save_data_pdf(feature_gene_cnv, "feature_gene_%s" % name, length, color, group_dic, which, args=args)
+    os.chdir(args.outdir)
+    # if len(args.group1 + args.group2) > 2:
+        # try:
+            # os.mkdir("intersection")
+        # except FileExistsError:
+            # pass
+        # os.chdir("intersection")
+        # color, length = make_col_color_heatmap(color_length)
+        # intersection_feature_gene = list(set(feature_genes[0]).intersection(*feature_genes[1:]))
+        # intersection_feature_gene_cnv = pd.concat([data.ix[intersection_feature_gene] for [args.group1, args.group2], data in gene_lists.items()], axis=1)
+        # try:
+            # save_data_pdf(intersection_feature_gene_cnv, "intersection", length, color, color_length)
+        # except Exception:
+            # print("no intersection\njob finish...")
+        # os.chdir(args.outdir)

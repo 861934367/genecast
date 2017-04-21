@@ -29,7 +29,7 @@ def anno_fusion(file, dic_data):
         if re == None:
             gene2.append(None); exon2.append(None)
         else:
-            gene2.append(re[0]); exon2.append(re[1])
+            gene2.append(re[0]); exon2.append("exon" + re[1])
     fusion["gene1"], fusion["exon1"], fusion["gene2"], fusion["exon2"] = gene1, exon1, gene2, exon2
     fusion.to_csv(file + "_anno.txt", sep="\t", index=False)
 
@@ -47,11 +47,12 @@ def parser_gff(gff_file):
     return dic_data
 
 #
-def fuan(args=None):
+def fuanno(args=None):
     dic_data = parser_gff(args.gff)
-    pool = multiprocessing.Pool(processes=int(args.p))
-    for file in glob(args.fusion):
+    pool = multiprocessing.Pool(processes=args.progress)
+    for file in args.fusion_files:
         pool.apply_async(anno_fusion, (file, dic_data,))
+    pool.close(); pool.join()
 
 
 if __name__ == "__main__":

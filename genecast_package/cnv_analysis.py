@@ -26,36 +26,36 @@ def split_gene_data(data, data_type):
     return data
 
 
-def parser_cnr(file, data_type="log2"):
+def parser_cnr(file, args=None):
     data = pd.read_table(file, usecols=["gene", "log2"])
     data = data.loc[data["gene"] != "Background"]
-    data = split_gene_data(data, data_type)
+    data = split_gene_data(data, args.data_type)
     groups = pd.DataFrame(data.groupby(data["gene"]).median())
     groups.columns = [file.split("/")[-1].split(".")[0]]
     return groups
 
 
-def parser_call_cnr(file, data_type="log2"):
+def parser_call_cnr(file, args=None):
     data = pd.read_table(file, usecols=["gene", "log2", "cn"])
     data = data.loc[data["gene"] != "Background"]
-    data = split_gene_data(data, data_type)
-    groups = pd.DataFrame(data[data_type].groupby(data["gene"]).median())
+    data = split_gene_data(data, args.data_type)
+    groups = pd.DataFrame(data[args.data_type].groupby(data["gene"]).median())
     groups.columns = [file.split("/")[-1].split(".")[0]]
     return groups
 
 
-def get_host_gene_cnv(host_gene_file, a, b, data_type="log2"):
-    gene_list = get_host_gene(host_gene_file)
-    if data_type == "log2": fun = parser_cnr; pattern = "/*cnr"
-    else: fun = parser_call_cnr ; pattern = "/*call"
+def get_host_gene_cnv(args=None):
+    gene_list = get_host_gene(args=args)
+    if args.data_type == "log2": fun = parser_cnr
+    else: fun = parser_call_cnr
     a_group = []
-    for file in glob(a + pattern):
+    for file in args.group1:
         a_group.append(file.split("/")[-1].split(".")[0])
-        gene_list = pd.merge(gene_list, fun(file, data_type=data_type), left_on="gene", right_index=True, how="left")
+        gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left")
     b_group = []
     for file in glob(b + pattern):
         b_group.append(file.split("/")[-1].split(".")[0])
-        gene_list = pd.merge(gene_list, fun(file, data_type=data_type), left_on="gene", right_index=True, how="left")
+        gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left")
     gene_list.index = gene_list["gene"]
     del gene_list["gene"]
     if 0 in gene_list.dropna(how="all").fillna(0):
@@ -67,6 +67,8 @@ def get_host_gene_cnv(host_gene_file, a, b, data_type="log2"):
 
 def cnv(args=None):
     make_result_folder(args=args, fun=get_host_gene_cnv, which="cnv")
+
+
 if __name__ == "__main__":
     host_gene_file = "target_gene.txt"
     groups = ["CESC", "OV", "UCEC"]

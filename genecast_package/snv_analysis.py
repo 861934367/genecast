@@ -21,7 +21,7 @@ def replace(file, indel):
     return "/".join(file.split("/")[:-1]) + "/" + base_name
 
 
-def merge_snp_indel(file, which):
+def merge_snp_indel(file, args=None):
     title = ['Chr', 'Start', 'End', 'Ref', 'Alt', 'Func.refGene', 'Gene.refGene',
              'GeneDetail.refGene', 'ExonicFunc.refGene', 'AAChange.refGene',
              'ljb2_pp2hdiv', 'ljb2_pp2hvar', 'ExAC_ALL', 'ExAC_AFR', 'ExAC_AMR',
@@ -29,9 +29,13 @@ def merge_snp_indel(file, which):
              "gnomAD_exome_ALL", "gnomAD_exome_AFR", "gnomAD_exome_AMR", "gnomAD_exome_ASJ", "gnomAD_exome_EAS",
              "gnomAD_exome_FIN", "gnomAD_exome_NFE", "gnomAD_exome_OTH", "gnomAD_exome_SAS",
              'Otherinfo', ".", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "ratio"]
-    if which == "snp":
+    if upper(args.somatic) == "Y":
+        title = title
+    else:
+        title = title[:-2] + ["ratio"]
+    if args.data_type == "snp":
         return pd.read_table(file, skiprows=1, names=title)
-    elif which == "indel":
+    elif args.data_type == "indel":
         indel_file = replace(file, "indel")
         pd.read_table(indel_file, skiprows=1, names=title)
     else:
@@ -43,7 +47,7 @@ def merge_snp_indel(file, which):
         return data_snp_indel
 
 
-def filter(data, file_name, cal, circos=False):
+def filter(data, file_name, args=None):
     target_ExonicFunc = ["frameshift", "nonframeshift", "nonsynonymous", "stopgain", "stoploss"]
     data = data.loc[data["Func.refGene"] == "exonic"]
     data["ExonicFunc"] = [i.split(" ")[0] for i in data["ExonicFunc.refGene"]]
@@ -58,16 +62,20 @@ def filter(data, file_name, cal, circos=False):
     data = data.loc[data["B"] != "B"]
     ExAC_columns = [i for i in data.columns if "gnomAD" in i]
     data["gnomAD_max"] = data[ExAC_columns].max(1)
+    if upper(args.somatic) == "Y":
+        n = 5
+    else:
+        n = 6
     ratio = []
     for i in data["ratio"]:
         try:
-            ratio.append(i.split(":")[5])
+            ratio.append(i.split(":")[n])
         except AttributeError:
             ratio.append(None)
     data["ratio"] = ratio
     data["max"] = [False if i != "." and float(i) >= 0.001 else True for i in data["gnomAD_max"]]
     data["ratio"] = [float(i.rstrip("%")) for i in data["ratio"]]
-    if circos:
+    if args.circos:
         data = data[['Chr', 'Start', 'End', 'Gene.refGene', "ratio"]]
         return data
     else:
@@ -75,21 +83,21 @@ def filter(data, file_name, cal, circos=False):
         groups = data.groupby(data["Gene.refGene"])
         data = pd.merge(groups.count(), groups.mean(), left_index=True, right_index=True, how="inner")
         data.columns = ["num", "mean"]
-        data = pd.DataFrame({file_name:data[cal]}, index=data.index)
+        data = pd.DataFrame({file_name:data[args.cal]}, index=data.index)
         return data
 
 
-def get_host_gene(host_gene_file):
-    if len(pd.read_table(host_gene_file).T) == 1:
+def get_host_gene(args=None):
+    if len(pd.read_table(args.host_gene).T) == 1:
         try:
-            gene_list = pd.read_table(host_gene_file, usecols=["gene"]).drop_duplicates()
+            gene_list = pd.read_table(args.host_gene, usecols=["gene"]).drop_duplicates()
         except Exception:
             raise MethodException('the format of your target file is wrong, '
                               'please make sure it only contain one colomn and its title must be gene,'
                               'or panal bed file also be ok')
     else:
         try:
-            gene_list = pd.read_table(host_gene_file, names=["chr", "start", "end", "gene", "trans"])[["gene"]].drop_duplicates()
+            gene_list = pd.read_table(args.host_gene, names=["chr", "start", "end", "gene", "trans"])[["gene"]].drop_duplicates()
         except Exception:
             raise MethodException('the format of your target file is wrong, '
                               'please make sure it only contain one colomn and its title must be gene,'
@@ -97,24 +105,24 @@ def get_host_gene(host_gene_file):
     return gene_list
 
 
-def _get_group_data(gene_data, g, cal, which, circos=False):
+def _get_group_data(gene_data, g, args=None):
     group = []
-    if len(glob(g + "/*snp*hg19_multianno.txt")) == 0:
+    if len(g) == 0:
         raise FileNoExist('no file get!!!, please check your file name!')
-    for file in glob(g + "/*snp*hg19_multianno.txt"):
+    for file in g:
         file_name = file.split("/")[-1].split(".")[0]
         group.append(file_name)
         if circos:
-            gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, which), file_name, cal, circos=circos), on=["chr", "start", "end", "gene"], how="outer")
+            gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), on=["chr", "start", "end", "gene"], how="outer")
         else:
-            gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, which), file_name, cal), left_on="gene", right_index=True, how="left")
+            gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), left_on="gene", right_index=True, how="left")
     return group, gene_data
 
 
-def get_host_gene_snv(host_gene_file, a, b, cal, which):
-    gene_list = get_host_gene(host_gene_file)
-    a_group, a_gene_data = _get_group_data(gene_list, a, cal, which)
-    b_group, b_gene_data = _get_group_data(gene_list, b, cal, which)
+def get_host_gene_snv(args=None):
+    gene_list = get_host_gene(args=args)
+    a_group, a_gene_data = _get_group_data(gene_list, args.group1, args=args)
+    b_group, b_gene_data = _get_group_data(gene_list, args.group2, args=args)
     gene_data = pd.merge(a_gene_data, b_gene_data, on="gene", how="outer")
     gene_data.index = gene_data["gene"]
     del gene_data["gene"]
@@ -123,7 +131,6 @@ def get_host_gene_snv(host_gene_file, a, b, cal, which):
     else:
         data = gene_data.dropna(how="all").fillna(0)
     return data, a_group, b_group
-#    return gene_data.dropna(how="all").fillna(0).drop(0, axis=0), a_group, b_group
 
 
 def make_karyotype(gene_list, unit):

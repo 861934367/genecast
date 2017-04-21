@@ -53,12 +53,12 @@ def make_ln_research(groups, search_dir, target_dir, which="bam"):
                   target_dir + "/" + group + "_%s" % which + "/" + type + "_" + s + target_name)
 
 
-def get_file_ln_info(file, research):
+def get_file_ln_info(args=None):
     ## file: use_sample_train.txt
     target_dir = os.getcwd()
-    sample_info = pd.read_table(file)
+    sample_info = pd.read_table(args.file)
     groups = sample_info.groupby(sample_info["group"])
-    if research != "yes":
+    if args.research != "yes":
         search_dir = glob("/work-z/shared/GeneticTest/*")
         make_ln_GeneticTest(groups, search_dir, target_dir, which="bam")
         make_ln_GeneticTest(groups, search_dir, target_dir, which="mpileup")
@@ -69,8 +69,8 @@ def get_file_ln_info(file, research):
     return sample_info["group"]
 
 
-def ln(sf=None, research="yes"):
-    get_file_ln_info(sf, research)
+def ln(args=None):
+    get_file_ln_info(args=args)
 
 
 if __name__ == "__main__":
