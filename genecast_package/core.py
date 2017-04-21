@@ -118,20 +118,20 @@ def plot_box(data, which, outname, palette, regulation, group, args=None):
 
 
 def databox(raw, which, outname=None, group=None, args=None):
-    palette = {}
+    palette_up = {}; palette_down = {}
     up = []; down = []
-    group1_data = raw[list(group.values())[0]]
-    group2_data = raw[list(group.values())[1]]
-    color = ["red", "green", "blue"]
+    group1_data = raw[list(group.values())[0]]; group1 = list(group.keys())[0]
+    group2_data = raw[list(group.values())[1]]; group2 = list(group.keys())[1]
+    color = ["red", "blue"]
     for gene in raw.index:
         if group1_data.ix[gene].sum() - group2_data.ix[gene].sum() >= 0:
-            up.append(gene)
+            up.append(gene); palette_up[group1] = "red"; palette_up[group2] = "blue"
         else:
-            down.append(gene)
-    for i, (name, g) in enumerate(group.items()):
-        palette[name] = color[i]
-    plot_box(raw.ix[up], which, outname, palette, "up", group, args=args)
-    plot_box(raw.ix[down], which, outname, palette, "down", group, args=args)
+            down.append(gene); palette_down[group1] = "blue"; palette_down[group2] = "red"
+    if len(palette_up) > 0:
+        plot_box(raw.ix[up], which, outname, palette_up, "up", group, args=args)
+    if len(palette_down) > 0:
+        plot_box(raw.ix[down], which, outname, palette_down, "down", group, args=args)
 
 
 def save_data_pdf(data, name, length, color, group_dic, which, args=None):
@@ -155,7 +155,7 @@ def save_parameters(args=None, which="cnv"):
             "data_type:"+ args.data_type + "\n"
     )
     f.write("Optional Parameters: not all parameters will be use, the used parameters according to Important Parameters" + "\n" + 
-            "============================" + "\n")
+            "============================" + "\n\n\n")
     f.write("pvalue:" + str(args.pval) + "\n" + \
     "penalty:" + args.penalty + "\n" + "C:" + str(args.C) + "\n" + "criterion:" + args.criterion + "\n" + \
     "threshold:" + str(args.threshold) + "\n" + "n_folds:" + str(args.n_folds) + "\n")

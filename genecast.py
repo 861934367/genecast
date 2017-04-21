@@ -29,6 +29,9 @@ def main():
     elif subCommand == "make_ln":
         from genecast_package.make_ln import ln
         ln(sf=args.sample_file, research=args.research)
+    elif subCommand == "fuanno":
+        from genecast_package.fuan import fuanno
+        fuan(args=args)
     elif subCommand == "prediction":
         pass
 
@@ -46,7 +49,7 @@ def pre_parser():
                         version="genecast: " + __version__)
 
     subparser = parser.add_subparsers(dest='subcommand')
-
+    add_anno_fusion(subparser)
     add_make_ln(subparser)
     add_cnv(subparser)
     add_snv(subparser)
@@ -67,6 +70,14 @@ def add_make_ln(subparser):
     parser.add_argument('-sf', '--sample_file', required=True, help='the dir of group1', type=str)
     parser.add_argument('-r', '--research', choices=("yes", "no"), required=False, default="yes",
                         help='if you sample is scientific research cooperation please choose yes,else choose no')
+
+
+def add_anno_fusion(subparser):
+    parser = subparser.add_parser('fuanno', help='anno fusion resulut of breakdancer module, the fusion resulut please contact the author')
+    parser.add_argument('-fusion', required=True, help='the fusion resulut files', type=str)
+    parser.add_argument('-gff', required=True, help='the gff file', type=str)
+    parser.add_argument('-p', '--progress', required=False, default=1, type=int,
+                        help='parallel anno fusion result')
 
 
 def add_circos(subparser):
@@ -156,9 +167,9 @@ def add_common_parameter(parser):
                         help='int, default=15 number of feature')
     parser.add_argument('-step', required=False, type=int, default=200,
                         help='int, default=200 parameter for Wrapper_LogisticRegression')
-    parser.add_argument('-cluster_method', required=False, type=str, default="average",
+    parser.add_argument('-cluster_method', required=False, type=str, default="complete",
                         choices=('complete', 'average', "weighted", "single"),
-                        help='str, default=average parameter for cluster_method')
+                        help='str, default=complete parameter for cluster_method')
     parser.add_argument('-save', required=False, type=str, default="png",
                         choices=('png', 'pdf'),
                         help='str, default=png parameter for save file format')

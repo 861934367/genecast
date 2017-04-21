@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import ranksums
 from scipy.stats import pearsonr
 from sklearn.svm import LinearSVC, SVC
-from sklearn.linear_model import LassoLarsIC, LogisticRegression, RandomizedLasso
+from sklearn.linear_model import LassoLarsIC, LogisticRegression, RandomizedLasso, Lasso
 from sklearn.feature_selection import RFE
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.ensemble import RandomForestRegressor
@@ -104,13 +104,13 @@ def get_train_test_data(data, group1, group2, feature_gene):
 
 def filter_variance(X, y, all_gene, args=None):
     variances = VarianceThreshold().fit(X, y)
-    feature_gene = [gene for gene, variance in zip(all_gene, variances) if variance >= args.threshold]
+    feature_gene = [gene for gene, variance in zip(all_gene, variances.variances_) if variance > args.threshold]
     return feature_gene
 
 
 def Wrapper_LogisticRegression(X, y, all_gene, args=None):
     result = RFE(estimator=LogisticRegression(penalty=args.penalty, C=args.C), n_features_to_select=args.n_feature, step=args.step).fit(X, y)
-    feature_gene = [gene for gene, variance in zip(all_gene, *result) if result == True]
+    feature_gene = [gene for gene, variance in zip(all_gene, result.support_) if result == True]
     return feature_gene
 
 
@@ -119,33 +119,34 @@ def Embedded_L1_L2(X, y, all_gene, args=None):
 
 
 def mean_decrease_impurity(X, y, all_gene, args=None):
-    result = RandomForestRegressor(n_estimators=args.n_estimators, max_features=args.max_features).fit(X, y)
-    feature_gene = [gene for gene, importance in zip(all_gene, *result.feature_importances_) if importance >= args.threshold]
+    result = RandomForestRegressor(n_estimators=args.n_estimators, max_features=args.n_feature).fit(X, y)
+    feature_gene = [gene for gene, importance in zip(all_gene, result.feature_importances_) if importance > args.threshold]
     return feature_gene
 
 
 def Stability_selection(X, y, all_gene, args=None):
     result = RandomizedLasso(alpha=args.alpha).fit(X, y)
-    feature_gene = [gene for gene, score in zip(all_gene, *result.scores_) if score >= args.threshold]
+    feature_gene = [gene for gene, score in zip(all_gene, result.scores_) if score > args.threshold]
     return feature_gene
 
 
 def lasso_regress(X, y, all_gene, args=None):
     result = Lasso(alpha=args.alpha).fit(X, y)
-    feature_gene = [gene for gene, coef in zip(all_gene, *result.coef_) if coef >= args.threshold]
+    print(result.coef_)
+    feature_gene = [gene for gene, coef in zip(all_gene, result.coef_) if coef > args.threshold]
     return feature_gene
 
 
 def logistic_regress(X, y, all_gene, args=None):
-    result = LogisticRegression(penalty=args.penalty, C=args.C)
-    feature_gene = [gene for gene, coef in zip(all_gene, *result.coef_) if coef >= args.threshold]
+    result = LogisticRegression(penalty=args.penalty, C=args.C).fit(X, y)
+    feature_gene = [gene for gene, coef in zip(all_gene, *result.coef_) if coef > args.threshold]
     return feature_gene
 
 
 def feature_select(data, group1, group2, args=None):
     ## 选择特征基因，支持多种选择方法， 默认采用logistic回归拟合权重系数
     base_function = ["wilcox", "pearsonr"]
-    if args.feature_selection_method in regression_function:
+    if args.feature_selection_method in base_function:
         pearsonr_target = [0] * len(group1) + [1] * len(group2)
         result = {"gene": data.index, "a_vs_b": []}
         for x, y in zip(data[group1].as_matrix(), data[group2].as_matrix()):

@@ -24,8 +24,8 @@ def make_ln_GeneticTest(groups, search_dir, target_dir, which="bam"):
             for file in search_dir:
                 if id == file.split("/")[-1]:
                     target_file = file
-            sh.ln("-s", target_file + source_name % "blood", target_dir + "/" + group + "_%s" % which + id + "_bc" + target_name)
-            sh.ln("-s", target_file + source_name % "plasma", target_dir + "/" + group + "_%s" % which + id + "_cf" + target_name)
+            sh.ln("-s", target_file + source_name % "blood", target_dir + "/" + group + "_%s" % which + "/" + id + "_bc" + target_name)
+            sh.ln("-s", target_file + source_name % "plasma", target_dir + "/" + group + "_%s" % which + "/" + id + "_cf" + target_name)
 
 
 def make_ln_research(groups, search_dir, target_dir, which="bam"):
@@ -46,7 +46,7 @@ def make_ln_research(groups, search_dir, target_dir, which="bam"):
         for s, id, line, date, type in zip(group_info["patient"], group_info["sampleid"], group_info["line"],
                                            group_info["data"], group_info["type"]):
             for file in search_dir:
-                if date.lower() in file or date in file:
+                if date.lower() + "_" in file or date + "_" in file:
                     target_file = file
                     sample_name = "S" + str(line) + "_" + id
             sh.ln("-s", target_file + source_folder + sample_name + source_name,

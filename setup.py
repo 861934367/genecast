@@ -19,3 +19,4 @@ setup_args.update(
     scripts=[join(DIR, 'genecast.py')] + glob(join(DIR, 'scripts/*.py')))
 
 setup(**setup_args)
+sh.rm("-rf", "build")

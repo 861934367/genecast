@@ -12,6 +12,9 @@ from genecast_package.core import make_result_folder
 class MethodException(Exception):
     pass
 
+class FileNoExist(Exception):
+    pass
+
 
 def replace(file, indel):
     base_name = file.split("/")[-1].replace("snp", indel)
@@ -96,6 +99,8 @@ def get_host_gene(host_gene_file):
 
 def _get_group_data(gene_data, g, cal, which, circos=False):
     group = []
+    if len(glob(g + "/*snp*hg19_multianno.txt")) == 0:
+        raise FileNoExist('no file get!!!, please check your file name!')
     for file in glob(g + "/*snp*hg19_multianno.txt"):
         file_name = file.split("/")[-1].split(".")[0]
         group.append(file_name)
