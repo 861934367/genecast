@@ -29,7 +29,7 @@ def merge_snp_indel(file, args=None):
              "gnomAD_exome_ALL", "gnomAD_exome_AFR", "gnomAD_exome_AMR", "gnomAD_exome_ASJ", "gnomAD_exome_EAS",
              "gnomAD_exome_FIN", "gnomAD_exome_NFE", "gnomAD_exome_OTH", "gnomAD_exome_SAS",
              'Otherinfo', ".", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "_", "ratio"]
-    if upper(args.somatic) == "Y":
+    if args.somatic.upper() == "Y":
         title = title
     else:
         title = title[:-2] + ["ratio"]
@@ -62,7 +62,7 @@ def filter(data, file_name, args=None):
     data = data.loc[data["B"] != "B"]
     ExAC_columns = [i for i in data.columns if "gnomAD" in i]
     data["gnomAD_max"] = data[ExAC_columns].max(1)
-    if upper(args.somatic) == "Y":
+    if args.somatic.upper() == "Y":
         n = 5
     else:
         n = 6
@@ -83,7 +83,7 @@ def filter(data, file_name, args=None):
         groups = data.groupby(data["Gene.refGene"])
         data = pd.merge(groups.count(), groups.mean(), left_index=True, right_index=True, how="inner")
         data.columns = ["num", "mean"]
-        data = pd.DataFrame({file_name:data[args.cal]}, index=data.index)
+        data = pd.DataFrame({file_name:data[args.cal_type]}, index=data.index)
         return data
 
 
@@ -112,7 +112,7 @@ def _get_group_data(gene_data, g, args=None):
     for file in g:
         file_name = file.split("/")[-1].split(".")[0]
         group.append(file_name)
-        if circos:
+        if args.circos:
             gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), on=["chr", "start", "end", "gene"], how="outer")
         else:
             gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), left_on="gene", right_index=True, how="left")

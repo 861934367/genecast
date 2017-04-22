@@ -53,7 +53,7 @@ def get_host_gene_cnv(args=None):
         a_group.append(file.split("/")[-1].split(".")[0])
         gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left")
     b_group = []
-    for file in glob(b + pattern):
+    for file in args.group2:
         b_group.append(file.split("/")[-1].split(".")[0])
         gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left")
     gene_list.index = gene_list["gene"]

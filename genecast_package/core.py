@@ -147,15 +147,15 @@ def save_data_pdf(data, name, length, color, group_dic, which, args=None):
 def save_parameters(args=None):
     f = open("parameters.txt", "w")
     f.write("Important Parameters" + "\n" + 
-            "============================" + "\n")
-    f.write("group1:" + args.group1 + "\n" + "group2:" + args.group2 + "\n"  +
+            "============================" + "\n")    
+    f.write("group1:" + args.group1[0].split("/")[-2] + "\n" + "group2:" + args.group2[0].split("/")[-2] + "\n"  +
             "host_gene:" + args.host_gene + "\n" +
             "feature_selection_method:" + args.feature_selection_method + "\n" + 
             "prediction_method:" + args.prediction_method + "\n" + "outdir:" + args.outdir + "\n" + 
-            "data_type:"+ args.data_type + "\n"
+            "data_type:"+ args.data_type + "\n\n\n"
     )
     f.write("Optional Parameters: not all parameters will be use, the used parameters according to Important Parameters" + "\n" + 
-            "============================" + "\n\n\n")
+            "============================" + "\n")
     f.write("pvalue:" + str(args.pval) + "\n" + \
     "penalty:" + args.penalty + "\n" + "C:" + str(args.C) + "\n" + "criterion:" + args.criterion + "\n" + \
     "threshold:" + str(args.threshold) + "\n" + "n_folds:" + str(args.n_folds) + "\n")
