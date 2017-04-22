@@ -23,10 +23,13 @@ warnings.filterwarnings("ignore")
 
 
 def z_score(data, axis):
+    if axis == 3:
+        return data
     if axis == 1:
         z_scored = data
     else:
         z_scored = data.T
+
     z_scored = (z_scored - z_scored.mean()) / z_scored.std()
 
     if axis == 1:
@@ -36,7 +39,7 @@ def z_score(data, axis):
 
 
 def pheatmap(data, length, col_cluster=True, xticklabels=True, yticklabels=True, color=None, name=None, args=None):
-    data = z_score(data, axis=0)
+    data = z_score(data, axis=args.z_score)
     if len(data.columns) > 30:
         xticklabels = False
     if len(data) > 80:
@@ -122,7 +125,6 @@ def databox(raw, which, outname=None, group=None, args=None):
     up = []; down = []
     group1_data = raw[list(group.values())[0]]; group1 = list(group.keys())[0]
     group2_data = raw[list(group.values())[1]]; group2 = list(group.keys())[1]
-    color = ["red", "blue"]
     for gene in raw.index:
         if group1_data.ix[gene].sum() - group2_data.ix[gene].sum() >= 0:
             up.append(gene); palette_up[group1] = "red"; palette_up[group2] = "blue"

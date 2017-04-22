@@ -6,6 +6,7 @@ import pandas as pd
 from glob import glob
 import numpy as np
 import os
+import re
 from genecast_package.core import make_result_folder
 
 
@@ -67,19 +68,32 @@ def filter(data, file_name, args=None):
     else:
         n = 6
     ratio = []
+    strand_filter = []
     for i in data["ratio"]:
-        try:
-            ratio.append(i.split(":")[n])
-        except AttributeError:
-            ratio.append(None)
+        ratio.append(i.split(":")[n])
+        if int(i.split(",")[-2]) + int(i.split(",")[-1]) >= args.two_strand:
+            strand_filter.append(True)
+        elif int(i.split(",")[-2]) >= args.one_strand and int(i.split(",")[-1]) >= args.one_strand:
+            strand_filter.append(True)
+        else:
+            strand_filter.append(False)
     data["ratio"] = ratio
     data["max"] = [False if i != "." and float(i) >= 0.001 else True for i in data["gnomAD_max"]]
     data["ratio"] = [float(i.rstrip("%")) for i in data["ratio"]]
+    data = data.loc[strand_filter].loc[data["ratio"] >= args.ratio].loc[data["max"] == True]
+    if args.locus:
+        data = data[["Gene.refGene", "AAChange.refGene", "ratio"]]
+        p_p = re.compile(r'p.(.*?),')
+        data_site = {"gene": [], file_name:[]}
+        for gene, aa, ratio in zip(data["Gene.refGene"], data["AAChange.refGene"], data["ratio"]):
+            for a in p_p.findall(aa) + [aa.split(".")[-1]]:
+                data_site["gene"].append(gene); data_site[file_name].append(ratio)
+        return pd.DataFrame(data_site[file_name], index=data_site["gene"], columns=[file_name])
     if args.circos:
         data = data[['Chr', 'Start', 'End', 'Gene.refGene', "ratio"]]
         return data
     else:
-        data = data.loc[data["max"] == True][["Gene.refGene", "ratio"]]
+        data = data[["Gene.refGene", "ratio"]]
         groups = data.groupby(data["Gene.refGene"])
         data = pd.merge(groups.count(), groups.mean(), left_index=True, right_index=True, how="inner")
         data.columns = ["num", "mean"]

@@ -10,6 +10,7 @@ from scipy import interp
 import matplotlib.pyplot as plt
 from scipy.stats import ranksums
 from scipy.stats import pearsonr
+from scipy.stats import fisher_exact
 from sklearn.svm import LinearSVC, SVC
 from sklearn.linear_model import LassoLarsIC, LogisticRegression, RandomizedLasso, Lasso
 from sklearn.feature_selection import RFE
@@ -145,15 +146,19 @@ def logistic_regress(X, y, all_gene, args=None):
 
 def feature_select(data, group1, group2, args=None):
     ## 选择特征基因，支持多种选择方法， 默认采用logistic回归拟合权重系数
-    base_function = ["wilcox", "pearsonr"]
+    base_function = ["wilcox", "pearsonr", "fisher"]
     if args.feature_selection_method in base_function:
-        pearsonr_target = [0] * len(group1) + [1] * len(group2)
+        num_group1 = len(group1); num_group2 = len(group2)
+        pearsonr_target = [0] * num_group1 + [1] * num_group2
         result = {"gene": data.index, "a_vs_b": []}
         for x, y in zip(data[group1].as_matrix(), data[group2].as_matrix()):
             if args.feature_selection_method == "wilcox":
                 z, p = ranksums(x, y)
             elif args.feature_selection_method == "pearsonr":
                 cor, p = pearsonr(pearsonr_target, list(x) + list(y))
+            elif args.feature_selection_method == "fisher":
+                x_nonzero = np.count_nonzero(x); y_nonzero = np.count_nonzero(y)
+                oddsratio, p = fisher_exact([[x_nonzero, num_group1 - x_nonzero], [y_nonzero, num_group2 - y_nonzero]])
             else:
                 raise MethodException('must offer a right feature selection method')
             result["a_vs_b"].append(p)

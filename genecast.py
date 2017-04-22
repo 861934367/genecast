@@ -108,15 +108,24 @@ def add_snv(subparser):
     parser = subparser.add_parser('snv', help='snv analysis module')
     parser.add_argument("-a", '--group1', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.vcf)")
     parser.add_argument("-b", '--group2', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.vcf)")
-    # parser.add_argument('-a', '--group1', required=True, help='the dir of group1', type=str)
-    # parser.add_argument('-b', '--group2', required=True, help='the dir of group2', type=str)
     # snv参数
+    parser.add_argument("-r", '--ratio', default=0, type=float,
+                        help='filter somatic ratio  default=0')
+    parser.add_argument("-os", '--one_strand', default=1, type=int,
+                        help='strand preference filter if two strand both greater than default,'
+                             'wo believe in it is a somatic default=1')
+    parser.add_argument("-ts", '--two_strand', default=5, type=int,
+                        help='if one of the two strand greater than defailt'
+                             ',whatever wo believe in it is a somatic default=10')
     parser.add_argument("-cal", '--cal_type', default='num', type=str,
                         choices=('num', 'mean'),
                         help='which type to cal  default=num')
     parser.add_argument("-dt", '--data_type', default='snv', type=str,
                         choices=('snv', 'snp', "indel"),
                         help='snv contain snp and indel  default=snv')
+    parser.add_argument("-locus", default=False, type=bool,
+                        choices=(False, True),
+                        help='if True, all calculate will base on locus level')
     parser.add_argument("-somatic", default='Y', type=str,
                         choices=('y', 'n'),
                         help='if you only have Blood cell and cfdna you should choose n else you have Blood cell and cfdna you should choose y; default=y')
@@ -129,9 +138,6 @@ def add_cnv(subparser):
     parser = subparser.add_parser('cnv', help='cnv analysis module')
     parser.add_argument("-a", '--group1', nargs='*', help="cnv resulut of cnvkit files (*.cnr)")
     parser.add_argument("-b", '--group2', nargs='*', help="cnv resulut of cnvkit files (*.cnr)")
-    # parser.add_argument('-a', '--group1', required=True, help='the dir of group1', type=str)
-
-    # parser.add_argument('-b', '--group2', required=True, help='the dir of group2', type=str)
     # cnv参数
     parser.add_argument("-dt", '--data_type', default='log2', type=str,
                         choices=('log2', 'cn'),
@@ -146,6 +152,10 @@ def add_common_parameter(parser):
     parser.add_argument('-hg', '--host_gene', required=True, type=str,
                         help='host gene file, please make sure it only contain one colomn and its title must be gene,'
                              'or panal bed file also be ok')
+    parser.add_argument('-z', '--z_score', required=False, type=int,
+                        choices=(0, 1, 3), default=0,
+                        help='z_score for heatmap, z = (x - mean)/std if 0, z for row if 1 z for column if 3 do nothing'
+                             'default=0')
     parser.add_argument('-fsm', "--feature_selection_method", required=False,
                         choices=('wilcox', 'pearsonr', "Lasso", "logistic", "RandomizedLasso", "RandomForest", "Wrapper", "variance"),
                         type=str, default="logistic",
