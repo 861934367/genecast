@@ -10,7 +10,7 @@ DIR = (dirname(__file__) or '.')
 from distutils.core import setup
 setup_args.update(
     name='genecast',
-    version='0.1.2',
+    version='0.1.3',
     author='zhou tao',
     author_email='zhou.tao@genecast.com.cn',
     packages=[
