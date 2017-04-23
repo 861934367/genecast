@@ -19,10 +19,11 @@ def make_ln_GeneticTest(groups, search_dir, target_dir, which="bam"):
         try:
             os.mkdir(group + "_%s" % which)
         except FileExistsError:
-            pass
+            sh.rm("-rf", group + "_%s" % which)
+            os.mkdir(group + "_%s" % which)
         for id in group_info["patient"]:
             for file in search_dir:
-                if id == file.split("/")[-1]:
+                if id.upper() == file.split("/")[-1].upper():
                     target_file = file
             sh.ln("-s", target_file + source_name % "blood", target_dir + "/" + group + "_%s" % which + "/" + id + "_bc" + target_name)
             sh.ln("-s", target_file + source_name % "plasma", target_dir + "/" + group + "_%s" % which + "/" + id + "_cf" + target_name)
@@ -56,7 +57,7 @@ def make_ln_research(groups, search_dir, target_dir, which="bam"):
 def get_file_ln_info(args=None):
     ## file: use_sample_train.txt
     target_dir = os.getcwd()
-    sample_info = pd.read_table(args.file)
+    sample_info = pd.read_table(args.sample_file)
     groups = sample_info.groupby(sample_info["group"])
     if args.research != "yes":
         search_dir = glob("/work-z/shared/GeneticTest/*")
