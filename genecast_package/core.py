@@ -150,7 +150,7 @@ def save_parameters(args=None):
     f = open("parameters.txt", "w")
     for arg in dir(args):
         if not arg.startswith("_"):
-            f.write(arg + ": " + getattr(args, arg) + "\n")
+            f.write(arg + ": " + str(getattr(args, arg)) + "\n")
     ##f.write("Important Parameters" + "\n" + 
     ##        "============================" + "\n")    
     ##f.write("group1:" + args.group1[0].split("/")[-2] + "\n" + "group2:" + args.group2[0].split("/")[-2] + "\n"  +
