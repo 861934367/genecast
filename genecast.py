@@ -17,15 +17,9 @@ def main():
     if subCommand == 'cnv':
         from genecast_package.cnv_analysis import cnv
         cnv(args=args)
-        # cnv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
-            # pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
-            # criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type)
     elif subCommand == "snv":
         from genecast_package.snv_analysis import snv
         snv(args=args)
-        # snv(hg=args.host_gene, group=[args.group1, args.group2], p=args.pval, method=args.feature_selection_method,
-            # pm=args.prediction_method, tg=args.outdir, C=args.C, n_folds=args.n_folds,
-            # criterion=args.criterion, penalty=args.penalty, threshold=args.threshold, dt=args.data_type, cal=args.cal_type)
     elif subCommand == "ln":
         from genecast_package.make_ln import ln
         ln(args=args)
@@ -106,8 +100,8 @@ def add_prediction(subparser):
 
 def add_snv(subparser):
     parser = subparser.add_parser('snv', help='snv analysis module')
-    parser.add_argument("-a", '--group1', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.vcf)")
-    parser.add_argument("-b", '--group2', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.vcf)")
+    parser.add_argument("-a", '--group1', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.txt)")
+    parser.add_argument("-b", '--group2', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.txt)")
     # snv参数
     parser.add_argument("-r", '--ratio', default=0, type=float,
                         help='filter somatic ratio  default=0')
@@ -156,8 +150,10 @@ def add_common_parameter(parser):
                         choices=(0, 1, 3), default=0,
                         help='z_score for heatmap, z = (x - mean)/std if 0, z for row if 1 z for column if 3 do nothing'
                              'default=0')
+    parser.add_argument("-cmp", default="bwr", type=str,
+                        help='colormaps for heatmap, default=bwr, refer http://matplotlib.org/examples/color/colormaps_reference.html')
     parser.add_argument('-fsm', "--feature_selection_method", required=False,
-                        choices=('wilcox', 'pearsonr', "Lasso", "logistic", "RandomizedLasso", "RandomForest", "Wrapper", "variance"),
+                        choices=('wilcox', "fisher", 'pearsonr', "Lasso", "logistic", "RandomizedLasso", "RandomForest", "Wrapper", "variance"),
                         type=str, default="logistic",
                         help='please choose a feature selection method, default is logistic')
     parser.add_argument('-threshold', required=False, type=float, default=0,

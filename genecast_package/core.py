@@ -44,8 +44,8 @@ def pheatmap(data, length, col_cluster=True, xticklabels=True, yticklabels=True,
         xticklabels = False
     if len(data) > 80:
         yticklabels = False
-    vmin, vmax = data.unstack().quantile([.01, .99])
-    re = sns.clustermap(data, cmap="bwr", row_cluster=True, method=args.cluster_method, col_cluster=col_cluster, figsize=(13, 10), \
+    vmin, vmax = data.unstack().quantile([.05, .95])
+    re = sns.clustermap(data, cmap=args.cmp, row_cluster=True, method=args.cluster_method, col_cluster=col_cluster, figsize=(13, 10), \
                         xticklabels=True, yticklabels=yticklabels, vmin=vmin, vmax=vmax, col_colors=color)
     re.ax_heatmap.set_xticklabels(re.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
     re.ax_heatmap.set_yticklabels(re.ax_heatmap.yaxis.get_majorticklabels(), rotation=0)
@@ -148,19 +148,22 @@ def save_data_pdf(data, name, length, color, group_dic, which, args=None):
 
 def save_parameters(args=None):
     f = open("parameters.txt", "w")
-    f.write("Important Parameters" + "\n" + 
-            "============================" + "\n")    
-    f.write("group1:" + args.group1[0].split("/")[-2] + "\n" + "group2:" + args.group2[0].split("/")[-2] + "\n"  +
-            "host_gene:" + args.host_gene + "\n" +
-            "feature_selection_method:" + args.feature_selection_method + "\n" + 
-            "prediction_method:" + args.prediction_method + "\n" + "outdir:" + args.outdir + "\n" + 
-            "data_type:"+ args.data_type + "\n\n\n"
-    )
-    f.write("Optional Parameters: not all parameters will be use, the used parameters according to Important Parameters" + "\n" + 
-            "============================" + "\n")
-    f.write("pvalue:" + str(args.pval) + "\n" + \
-    "penalty:" + args.penalty + "\n" + "C:" + str(args.C) + "\n" + "criterion:" + args.criterion + "\n" + \
-    "threshold:" + str(args.threshold) + "\n" + "n_folds:" + str(args.n_folds) + "\n")
+    for arg in dir(args):
+        if not arg.startswith("_"):
+            f.write(arg + ": " + getattr(args, arg) + "\n")
+    ##f.write("Important Parameters" + "\n" + 
+    ##        "============================" + "\n")    
+    ##f.write("group1:" + args.group1[0].split("/")[-2] + "\n" + "group2:" + args.group2[0].split("/")[-2] + "\n"  +
+    ##        "host_gene:" + args.host_gene + "\n" +
+    ##        "feature_selection_method:" + args.feature_selection_method + "\n" + 
+    ##        "prediction_method:" + args.prediction_method + "\n" + "outdir:" + args.outdir + "\n" + 
+    ##        "data_type:"+ args.data_type + "\n\n\n"
+    ##)
+    ##f.write("Optional Parameters: not all parameters will be use, the used parameters according to Important Parameters" + "\n" + 
+    ##        "============================" + "\n")
+    ##f.write("pvalue:" + str(args.pval) + "\n" + \
+    ##"penalty:" + args.penalty + "\n" + "C:" + str(args.C) + "\n" + "criterion:" + args.criterion + "\n" + \
+    ##"threshold:" + str(args.threshold) + "\n" + "n_folds:" + str(args.n_folds) + "\n")
     f.close()
 
 

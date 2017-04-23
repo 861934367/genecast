@@ -60,7 +60,10 @@ def filter(data, file_name, args=None):
         else:
             B.append("ok")
     data["B"] = B
-    data = data.loc[data["B"] != "B"]
+    try:
+        data = data.loc[data["B"] != "B"]
+    except TypeError:
+        raise FileNoExist("after filter this file: %s no result" % file_name)
     ExAC_columns = [i for i in data.columns if "gnomAD" in i]
     data["gnomAD_max"] = data[ExAC_columns].max(1)
     if args.somatic.upper() == "Y":
@@ -87,8 +90,8 @@ def filter(data, file_name, args=None):
         data_site = {"gene": [], file_name:[]}
         for gene, aa, ratio in zip(data["Gene.refGene"], data["AAChange.refGene"], data["ratio"]):
             for a in p_p.findall(aa) + [aa.split(".")[-1]]:
-                data_site["gene"].append(gene); data_site[file_name].append(ratio)
-        return pd.DataFrame(data_site[file_name], index=data_site["gene"], columns=[file_name])
+                data_site["gene"].append(gene + "_" + a); data_site[file_name].append(ratio)
+        return pd.DataFrame(data_site[file_name], index=data_site["gene"], columns=[file_name]).drop_duplicates()
     if args.circos:
         data = data[['Chr', 'Start', 'End', 'Gene.refGene', "ratio"]]
         return data

@@ -7,7 +7,6 @@ import sh
 
 setup_args = {}
 DIR = (dirname(__file__) or '.')
-from distutils.core import setup
 setup_args.update(
     name='genecast',
     version='0.1.3',
