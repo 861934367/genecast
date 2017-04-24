@@ -105,12 +105,12 @@ def add_snv(subparser):
     # snv参数
     parser.add_argument("-r", '--ratio', default=0, type=float,
                         help='filter somatic ratio  default=0')
-    parser.add_argument("-os", '--one_strand', default=1, type=int,
+    parser.add_argument("-os", '--one_strand', default=0, type=int,
                         help='strand preference filter if two strand both greater than default,'
-                             'wo believe in it is a somatic default=1')
-    parser.add_argument("-ts", '--two_strand', default=5, type=int,
+                             'wo believe in it is a somatic default=0')
+    parser.add_argument("-ts", '--two_strand', default=0, type=int,
                         help='if one of the two strand greater than defailt'
-                             ',whatever wo believe in it is a somatic default=10')
+                             ',whatever wo believe in it is a somatic default=0')
     parser.add_argument("-cal", '--cal_type', default='num', type=str,
                         choices=('num', 'mean'),
                         help='which type to cal  default=num')
