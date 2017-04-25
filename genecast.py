@@ -26,8 +26,12 @@ def main():
     elif subCommand == "fuanno":
         from genecast_package.fuan import fuanno
         fuanno(args=args)
+    elif subCommand == "qc":
+        from genecast_package.depth_coverage_plot import plot_coverage
+        plot_coverage(args=args)
     elif subCommand == "prediction":
         pass
+
 
 def pre_parser():
     '''
@@ -44,6 +48,7 @@ def pre_parser():
 
     subparser = parser.add_subparsers(dest='subcommand')
     add_anno_fusion(subparser)
+    add_coverage(subparser)
     add_make_ln(subparser)
     add_cnv(subparser)
     add_snv(subparser)
@@ -57,6 +62,14 @@ def add_output(parser):
     '''output option'''
     parser.add_argument('-o', '--outdir', required=False, default=os.getcwd(),
                         help='the dir of output, default is a_vs_b')
+
+
+def add_coverage(subparser):
+    parser = subparser.add_parser('qc', help='plot depth voverage, need bam file')
+    parser.add_argument('bams', nargs='*', help="bam files (*.bam)")
+    parser.add_argument('-n', required=False, default=50, help='bin', type=int)
+    parser.add_argument('-p', '--progress', required=False, default=1, type=int,
+                        help='parallel anno fusion result')
 
 
 def add_make_ln(subparser):
