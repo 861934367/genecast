@@ -192,17 +192,17 @@ def feature_select(data, group1, group2, args=None):
         return feature_gene
 
 
-def evaluate_model(data, group1, group2, feature_gene, args=None, name=None, method="LinearSVC", C=1, n_folds=5):
+def evaluate_model(data, group1, group2, feature_gene, args=None, name=None):
     X, y = get_train_test_data(data, group1, group2, feature_gene)
-    if method == "LinearSVC":
+    if args.prediction_method == "LinearSVC":
         model = LinearSVC()
-    elif method == "SVC":
+    elif args.prediction_method == "SVC":
         model = SVC(kernel='linear', probability=True)
-    elif method == "logistic":
-        model = LogisticRegression(C=C, random_state=0)
+    elif args.prediction_method == "logistic":
+        model = LogisticRegression(C=args.C, random_state=0)
     else:
         raise MethodException('must offer a right prediction method')
-    plot_ROC(X, y, classifier=model, n_folds=n_folds, name=name)
+    plot_ROC(X, y, classifier=model, args=args, name=name)
 
 
 def prediction(X, y, X1, y1, method="LinearSVC", C=1, n_folds=5):
@@ -223,8 +223,8 @@ def prediction(X, y, X1, y1, method="LinearSVC", C=1, n_folds=5):
     return result
 
 
-def plot_ROC(X, y, classifier=None, n_folds=10, name=None, method=None):
-    cv = StratifiedKFold(y, n_folds=n_folds)
+def plot_ROC(X, y, classifier=None, args=None, name=None):
+    cv = StratifiedKFold(y, n_folds=args.n_folds)
     classifier = classifier
     mean_tpr = 0.0
     mean_fpr = np.linspace(0, 1, len(y))
@@ -233,6 +233,8 @@ def plot_ROC(X, y, classifier=None, n_folds=10, name=None, method=None):
         probas_ = classifier.fit(X[train], y[train]).predict_proba(X[test])
         fpr, tpr, thresholds = roc_curve(y[test], probas_[:, 1])
         mean_tpr += interp(mean_fpr, fpr, tpr)
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, lw=1, label='ROC fold %d (area = %0.2f)' % (i, roc_auc))
         mean_tpr[0] = 0.0
     mean_tpr /= len(cv)
     mean_tpr[-1] = 1.0
@@ -243,7 +245,8 @@ def plot_ROC(X, y, classifier=None, n_folds=10, name=None, method=None):
     plt.ylim([-0.00, 1.00])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title("ROC curve of %s (AUC = %.3f)" % (method, mean_auc))
+    plt.title("Mean ROC of %s (AUC = %.3f, Folds = %d)" % (args.prediction_method, mean_auc, args.n_folds))
+    plt.legend(loc="lower right")
     plt.savefig(name + "_ROC.png")
     plt.close()
     

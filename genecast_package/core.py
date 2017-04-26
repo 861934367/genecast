@@ -201,7 +201,7 @@ def make_result_folder(args=None, which="cnv", fun=None):
     save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which, args=args)
     pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % args.pval, sep="\t", index=False)
     feature_gene_cnv = gene_list.ix[feature_gene]
-    evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, args=args, method=args.prediction_method, C=args.C, n_folds=args.n_folds)
+    evaluate_model(gene_list, a_group, b_group, feature_gene, name="feature_gene_%s" % name, args=args)
     save_data_pdf(feature_gene_cnv, "feature_gene_%s" % name, length, color, group_dic, which, args=args)
     os.chdir(args.outdir)
     # if len(args.group1 + args.group2) > 2:
