@@ -67,6 +67,9 @@ def add_output(parser):
 def add_coverage(subparser):
     parser = subparser.add_parser('qc', help='plot depth voverage, need bam file')
     parser.add_argument('bams', nargs='*', help="bam files (*.bam)")
+    parser.add_argument('-type', choices=('reads', 'base'), required=False, default="reads", help='reads or base, default=reads', type=str)
+    parser.add_argument('-panel', required=False, help='which panel, default=panel6', type=str, default="panel6")
+    parser.add_argument('-depth', required=False, default=1500, help='default depth', type=int)
     parser.add_argument('-n', required=False, default=50, help='bin', type=int)
     parser.add_argument('-p', '--progress', required=False, default=1, type=int,
                         help='parallel anno fusion result')
