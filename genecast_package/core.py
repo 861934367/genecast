@@ -16,6 +16,7 @@ from collections import OrderedDict
 from collections import defaultdict
 import datetime
 import pandas as pd
+from scipy.stats import ranksums
 import os
 import sh
 import warnings
@@ -90,11 +91,11 @@ def pca(data, group_dic, n=None, args=None):
     for name, number in length.items():
         plt.scatter(newData[number[0]:number[1], 0], newData[number[0]:number[1], 1], label=name, color=colors[i])
         i += 1
-    plt.title("PCA analysis")
+    plt.title("PCA analysis", size=20)
     pc1 = 100*pca.explained_variance_ratio_[0]
     pc2 = 100*pca.explained_variance_ratio_[1]
-    plt.xlabel("PC1(%.1f)" % pc1)
-    plt.ylabel("PC1(%.1f)" % pc2)
+    plt.xlabel("PC1(%.1f)" % pc1, size=15)
+    plt.ylabel("PC1(%.1f)" % pc2, size=15)
     plt.legend()
     plt.savefig("PCA_%s.png" % n)
     plt.close()
@@ -103,19 +104,25 @@ def pca(data, group_dic, n=None, args=None):
 def plot_box(data, which, outname, palette, regulation, group, args=None):
     fig, ax1 = plt.subplots(figsize=(8,12))
     box_data = defaultdict(list)
+    names = []
     if which == "cnv":
         how = "mean"
         for name, g in group.items():
+            names.append(name)
             box_data[name] = data[g].mean(0)
     else:
         how = "sum"
         for name, g in group.items():
+            names.append(name)
             box_data[name] = data[g].sum(0)
+    z, p = ranksums(box_data[names[0]], box_data[names[1]])
     data.to_csv(outname + "_box_data_%s_%s" % (regulation, how) + ".txt", sep="\t")
     sns.boxplot(data=pd.DataFrame(box_data), ax=ax1, width=0.2, linewidth=.5, palette=palette)
-    ax1.set_title(outname)
-    ax1.set_ylabel('%s value(%s)' % (which, how))
+    ax1.set_title("Difference of %s (p = %f)" % (which, p), size=30)
+    ax1.set_ylabel('%s value(%s)' % (which, how), size=30)
     fig.autofmt_xdate(ha='center', rotation=0)
+    plt.xticks(rotation=0, size=30)
+    plt.legend()
     fig.savefig(r'%s_box_data_%s_%s_Boxplot.%s' % (outname, regulation, how, args.save), dpi=600, size=0.5)
     plt.close()
 

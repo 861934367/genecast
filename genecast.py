@@ -30,7 +30,11 @@ def main():
         from genecast_package.depth_coverage_plot import plot_coverage
         plot_coverage(args=args)
     elif subCommand == "prediction":
-        pass
+        from genecast_package.svm_analysis import prediction_module
+        prediction_module(args=None)
+    #elif subCommand == "circos":
+     #   from genecast_package.snv_analysis import circos_data
+      #  circos_data(args=args)
 
 
 def pre_parser():
@@ -69,8 +73,9 @@ def add_coverage(subparser):
     parser.add_argument('bams', nargs='*', help="bam files (*.bam)")
     parser.add_argument('-type', choices=('reads', 'base'), required=False, default="reads", help='reads or base, default=reads', type=str)
     parser.add_argument('-panel', required=False, help='which panel, default=panel6', type=str, default="panel6")
-    parser.add_argument('-depth', required=False, default=1500, help='default depth', type=int)
-    parser.add_argument('-n', required=False, default=50, help='bin', type=int)
+    #parser.add_argument('-depth', required=False, default=0, help='default=0', type=int)
+    parser.add_argument('-n', required=False, default=150, help='bin for type=base, default=150', type=int)
+    parser.add_argument('-o', "--out", required=False, default="", help='Uniformity Boxplot file name', type=str)
     parser.add_argument('-p', '--progress', required=False, default=1, type=int,
                         help='parallel anno fusion result')
 
@@ -85,16 +90,16 @@ def add_make_ln(subparser):
 def add_anno_fusion(subparser):
     parser = subparser.add_parser('fuanno', help='anno fusion resulut of breakdancer module, the fusion resulut please contact the author')
     parser.add_argument('fusion_files', nargs='*', help="fusion resulut of breakdancer files (.fusion)")
-    parser.add_argument('-gff', required=True, help='the gff file', type=str)
+    parser.add_argument('-gff', required=False, default="/home/zhout/data/hg37.gff", help='the gff file, /home/zhout/data/hg37.gff', type=str)
     parser.add_argument('-p', '--progress', required=False, default=1, type=int,
-                        help='parallel anno fusion result')
+                        help='parallel anno fusion')
 
 
 def add_circos(subparser):
     parser = subparser.add_parser('circos',
                                   help='arranged the data for plot circos')
     # prediction参数
-    pass
+    
 
 
 def add_prediction(subparser):
@@ -141,6 +146,9 @@ def add_snv(subparser):
                         help='if you only have Blood cell and cfdna you should choose n else you have Blood cell and cfdna you should choose y; default=y')
     parser.add_argument('-circos', default=False, type=bool,
                         choices=(True, False), help="if you need plot circos, please choose True, depault=False")
+    parser.add_argument("-u", "--unit", default=100000, type=int,
+                        help="the normalization gene size for circos")
+    parser.add_argument("-gl", "--gene_location", required=False, type=str, help="gene location")
     add_common_parameter(parser)
 
 

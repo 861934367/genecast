@@ -5,8 +5,10 @@
 import pandas as pd
 from glob import glob
 import numpy as np
+import sh
 import os
 import re
+import datetime
 from genecast_package.core import make_result_folder
 
 
@@ -67,23 +69,24 @@ def filter(data, file_name, args=None):
     ExAC_columns = [i for i in data.columns if "gnomAD" in i]
     data["gnomAD_max"] = data[ExAC_columns].max(1)
     if args.somatic.upper() == "Y":
-        n = 5
+        n = 5; s = ","
     else:
-        n = 6
+        n = 6; s = ":"
     ratio = []
     strand_filter = []
     for i in data["ratio"]:
         ratio.append(i.split(":")[n])
-        if int(i.split(",")[-2]) + int(i.split(",")[-1]) >= args.two_strand:
-            strand_filter.append(True)
-        elif int(i.split(",")[-2]) >= args.one_strand and int(i.split(",")[-1]) >= args.one_strand:
-            strand_filter.append(True)
+        if int(i.split(s)[-2]) + int(i.split(s)[-1]) >= args.two_strand:
+            if int(i.split(s)[-2]) >= args.one_strand and int(i.split(s)[-1]) >= args.one_strand:
+                strand_filter.append(True)
+            else:
+                strand_filter.append(False)
         else:
             strand_filter.append(False)
     data["ratio"] = ratio
     data["max"] = [False if i != "." and float(i) >= 0.001 else True for i in data["gnomAD_max"]]
     data["ratio"] = [float(i.rstrip("%")) for i in data["ratio"]]
-    data = data.loc[strand_filter].loc[data["ratio"] >= args.ratio].loc[data["max"] == True]
+    data = data.loc[(strand_filter) & (data["ratio"] >= args.ratio) & (data["max"] == True)]
     if args.locus:
         data = data[["Gene.refGene", "AAChange.refGene", "ratio"]]
         p_p = re.compile(r'p.(.*?),')
@@ -126,13 +129,19 @@ def _get_group_data(gene_data, g, args=None):
     group = []
     if len(g) == 0:
         raise FileNoExist('no file get!!!, please check your file name!')
-    for file in g:
+    for i, file in enumerate(g):
         file_name = file.split("/")[-1].split(".")[0]
         group.append(file_name)
         if args.circos:
-            gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), on=["chr", "start", "end", "gene"], how="outer")
+            if i == 0:
+                temp = filter(merge_snp_indel(file, args=args), file_name, args=args)
+            else:
+                temp = pd.merge(temp, filter(merge_snp_indel(file, args=args), file_name, args=args), on=['Chr', 'Start', 'End', 'Gene.refGene'], how="outer")
+        #gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), on=["Chr", "Gene.refGene"], how="left")
         else:
             gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), left_on="gene", right_index=True, how="left")
+    if args.circos:
+        gene_data = temp.loc[temp["Gene.refGene"].isin(gene_data["Gene.refGene"])]
     return group, gene_data
 
 
@@ -152,7 +161,7 @@ def get_host_gene_snv(args=None):
 
 def make_karyotype(gene_list, unit):
     f = open("karyotype_hg19.txt", "w")
-    for i, gene in enumerate(gene_list):
+    for i, gene in enumerate(gene_list["Gene.refGene"]):
         f.write(
             "chr - " + gene + " " + gene + " " + str(0) + " " + str(unit) + " " + "chr" + str(i + 1) + "\n")
 
@@ -160,9 +169,10 @@ def make_karyotype(gene_list, unit):
 def fill_0(gene_group, unit):
     data = {"gene": [], "start": [], "end": [], "ratio": []}
     temp = 0
-    for gene, start, ratio in zip(gene_group["gene"], gene_group["start"], gene_group["ratio"]):
+    for gene, start, ratio in zip(gene_group["Gene.refGene"], gene_group["Start"], gene_group["ratio"]):
         data["gene"].append(gene)
         if start != temp:
+            data["gene"].append(gene)
             data["start"].append(temp)
             data["end"].append(start)
             data["ratio"].append(0)
@@ -170,44 +180,46 @@ def fill_0(gene_group, unit):
         data["end"].append(start + 1)
         data["ratio"].append(ratio)
         temp = start + 1
+    data["gene"].append(gene)
     data["start"].append(temp)
     data["end"].append(unit)
     data["ratio"].append(0)
     return pd.DataFrame(data)
 
 
-def circos_data(host_gene_file, root_dir, gene_location, groups, which="snv", cal="mean", unit=100000):
-    try:
-        os.mkdir("circos")
-    except FileExistsError:
-        pass
-    gene_list = get_host_gene(host_gene_file)
-    gene_location = pd.read_table(gene_location, names=["Chr", "Start", "End", "Gene.refGene"])
-    gene_list = gene_location.loc[gene_location["Gene.refGene"].isin(gene_list)]
+def circos_data(args=None):
+    i = datetime.datetime.now()
+    os.mkdir("circos" + "_%s%s%s_%s%s" % (i.year, i.month, i.day, i.hour, i.minute))
+    gene_list = get_host_gene(args=args)
+    gene_location = pd.read_table(args.gene_location, names=["Chr", "Start", "End", "Gene.refGene"])
+    gene_list = gene_location.loc[gene_location["Gene.refGene"].isin(gene_list["gene"])]
     norm_loc = {}
+    os.chdir("circos" + "_%s%s%s_%s%s" % (i.year, i.month, i.day, i.hour, i.minute))
     for gene, start, end in zip(gene_list["Gene.refGene"], gene_list["Start"],
                                 gene_list["End"]):
-        norm_loc[gene] = [gene, start, (end - start) / unit]
-    for g in groups:
-        group, data = _get_group_data(gene_list, g, cal, which, circos=True)
+        norm_loc[gene] = [gene, start, (end - start) / args.unit]
+    for g in [args.group1, args.group2]:
+        group, data = _get_group_data(gene_list, g, args=args)
         ratio = [i for i in data.columns if "ratio" in i]
-        print(data)
-        last_data = data[["gene", "start", "end"]]
+        last_data = data[["Gene.refGene", "Start", "End"]]
         last_data["ratio"] = data[ratio].fillna(0).sum(1)
         last_group = []
-        gene_groups = last_data.groupby(last_data["gene"])
+        gene_groups = last_data.groupby(last_data["Gene.refGene"])
         for gene, gene_group in gene_groups:
-            gene_group["start"] = np.round((gene_group["start"] - norm_loc[gene][1]) / norm_loc[gene][2])
-            gene_group = gene_group.sort_values("start")
-            last_group.append(fill_0(gene_group, unit))
+            gene_group["Start"] = np.round((gene_group["Start"] - norm_loc[gene][1]) / norm_loc[gene][2])
+            gene_group = gene_group.sort_values("Start")
+            last_group.append(fill_0(gene_group, args.unit))
         last_group = pd.concat(last_group, axis=0)
-        last_group.to_csv(g.split("/")[-1] + ".txt", sep="\t", index=False, header=None)
-    make_karyotype(gene_list, unit)
+        last_group[["gene", "start", "end", "ratio"]].to_csv(g[0].split("/")[-2] + ".txt", sep="\t", index=False, header=None)
+    make_karyotype(gene_list, args.unit)
+    os.chdir(os.getcwd())
 
 
 def snv(args=None):
-    make_result_folder(args=args, fun=get_host_gene_snv, which=args.data_type)
-
+    if args.circos:
+        circos_data(args=args)
+    else:
+        make_result_folder(args=args, fun=get_host_gene_snv, which=args.data_type)
 
 if __name__ == "__main__":
     host_gene_file = "panel6.bed"

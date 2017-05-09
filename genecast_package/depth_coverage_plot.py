@@ -26,21 +26,25 @@ def plot(data, args=None, file=None):
     fig, axs = plt.subplots(nrows=2, ncols=1,figsize=(15,12))
     average_depth = data[args.type].mean()
     percentage20 = len(data.loc[data[args.type] > average_depth * 0.2]) / len(data)
-    reads = bin(data[args.type], 150)
-    ax1 = axs[0]
+    if args.type == "base": reads = bin(data[args.type], args.n)
+    else: reads = np.log10(data[args.type])
+    ax1, ax2 = axs[0], axs[1]
     ax1.bar(np.arange(len(reads)), reads, 1, color="slateblue")
     ax1.set_ylabel("$Log10(%s)$" % args.type, size=20)
-    ax1.set_xlabel("panel_loction(bin=%d)" % 150, size=20)
-    if average_depth >= args.depth:
-        ax1.set_title("Uniformity of Coverage (Average Coverage = %d percentage20 = %0.3f)" % (average_depth, percentage20), size=20)
-    else:
-        ax1.set_title("Uniformity of Coverage (Average Coverage = %d)" % (average_depth), size=20)
-    ax2 = axs[1]
+    
+    #ax1.set_title("Uniformity of Coverage (Average Coverage = %d)" % (average_depth), size=20)
     reads.sort()
     ax2.bar(np.arange(len(reads)), reads, 1, color="slateblue")
     ax2.set_ylabel("$Log10(%s)$" % args.type, size=20)
     ax2.set_xticks([])
-    ax2.set_xlabel("sort_depth(bin=%d)" % 150, size=20)
+    if args.type == "base":
+        ax1.set_xlabel("panel_loction(bin=%d)" % args.n, size=20)
+        ax2.set_xlabel("sort_depth(bin=%d)" % args.n, size=20)
+        ax1.set_title("Uniformity of Coverage (Average Coverage = %d percentage20 = %0.3f)" % (average_depth, percentage20), size=20)
+    else:
+        ax1.set_xlabel("panel_loction(bin=panel_region)", size=20)
+        ax2.set_xlabel("sort_depth(bin=panel_region)", size=20)
+        ax1.set_title("Uniformity of Coverage (Average reads of panel_region = %d percentage20 = %0.3f)" % (average_depth, percentage20), size=20)
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9, hspace = 0.2, wspace = 0.3)
     plt.savefig("%s_uniformity_coverage.png" % file.split(".")[0], dpi=600)
     plt.close()
@@ -49,8 +53,8 @@ def plot(data, args=None, file=None):
 def multiprocessing_plot(file, args):
     if args.type == "reads":
         sam = pysam.AlignmentFile(file)
-        data = pd.read_table("/home/zhout/data/%s_for_qc.bed" % args.panel)
-        data["reads"] = [sam.count(chr, pos, pos + 1) for chr, pos in zip(data["chr"], data["pos"])]
+        data = pd.read_table("/home/zhout/data/%s.bed" % args.panel, names=["chr", "start", "end", "gene", "transcript"])
+        data["reads"] = [sam.count(chr, start, end) / (end - start) for chr, start, end in zip(data["chr"], data["start"], data["end"])]
     elif args.type == "base":
         re = sh.samtools("depth", file, "-b", "/home/zhout/data/%s.bed" % args.panel)
         f = open(file.strip(".") + ".depth", "wb")
@@ -72,10 +76,10 @@ def plot_coverage(args=None):
     data = pd.DataFrame(box_data)
     fig, ax1 = plt.subplots(figsize=(len(args.bams), 12))
     sns.boxplot(data=data, ax=ax1, width=0.2, linewidth=.5)
-    ax1.set_title("Uniformity of overage")
+    ax1.set_title("Uniformity of Coverage")
     ax1.set_ylabel("$Log10(%s)$" % args.type)
-    ax1.set_xticklabels(ax1.xaxis.get_majorticklabels(), rotation=90)
     fig.autofmt_xdate(ha='center', rotation=0)
-    fig.savefig(r'%s_Boxplot.png' % ("Uniformity"), dpi=600)
+    plt.xticks(rotation=90)
+    fig.savefig(r'%s_Uniformity_Boxplot.png' % (args.out), dpi=600)
     plt.close()
 

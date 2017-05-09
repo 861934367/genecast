@@ -219,8 +219,13 @@ def prediction(X, y, X1, y1, method="LinearSVC", C=1, n_folds=5):
     expected = y1
     predicted = model.predict(X1)
     plot_ROC(X, y, classifier=model, n_folds=n_folds, method=method)
-    result = [True if i == k else False for i, k in zip(expected, predicted)]
-    return result
+    result = {}
+    result["expected"] = y1
+    result["predicted"] = predicted
+    result = pd.DataFrame(result)
+    result.to_csv("predicted_result.txt", sep="\t", index=False)
+    # result = [True if i == k else False for i, k in zip(expected, predicted)]
+    # return result
 
 
 def plot_ROC(X, y, classifier=None, args=None, name=None):
@@ -251,6 +256,17 @@ def plot_ROC(X, y, classifier=None, args=None, name=None):
     plt.close()
     
 
+def prediction_module(args=None):
+    train_data = pd.read_table(args.train_data, index_col=0)
+    test_data = pd.read_table(args.test_data, index_col=0)
+    train_group = pd.read_table(args.group1, names=["a", "b"])
+    test_group = pd.read_table(args.group2, names=["a", "b"])
+    feature_gene = feature_select(train_data, train_group["a"], train_group["b"], args=args)
+    X1, y1 = get_train_test_data(train_data, train_group["a"], train_group["b"], feature_gene)
+    X2, y2 = get_train_test_data(test_data, test_group["a"], test_group["b"], feature_gene)
+    prediction(X1, y1, X2, y2, method=args.prediction_method, C=args.C, n_folds=args.n_folds)
+
+	
 if __name__ == "__main__":
     ## 主程序 返回并打印每个样本的准确率
     group = pd.read_table("group.txt")
