@@ -25,12 +25,18 @@ def make_ln_GeneticTest(groups, search_dir, target_dir, which="bam"):
             for file in search_dir:
                 if id.upper() == file.split("/")[-1].upper():
                     target_file = file
-            sh.ln("-s", target_file + source_name % "blood", target_dir + "/" + group + "_%s" % which + "/" + id + "_bc" + target_name)
-            sh.ln("-s", target_file + source_name % "plasma", target_dir + "/" + group + "_%s" % which + "/" + id + "_cf" + target_name)
+            try:
+                sh.ln("-s", target_file + source_name % "blood", target_dir + "/" + group + "_%s" % which + "/" + id + "_bc" + target_name)
+                sh.ln("-s", target_file + source_name % "plasma", target_dir + "/" + group + "_%s" % which + "/" + id + "_cf" + target_name)
+            except FileExistsError:
+                pass
 
-
-def make_ln_research(groups, search_dir, target_dir, which="bam"):
-    if which == "bam":
+def make_ln_research(groups, search_dir, target_dir, which="bam", r=None):
+    if which == "fastq":
+        source_name = ".%s.fq.gz" %r
+        source_folder = "/fastq/"
+        target_name = ".%s.fq.gz" %r
+    elif which == "bam":
         source_name = ".sorted.filtered.bam"
         source_folder = "/mapped/"
         target_name = ".bam"
@@ -50,9 +56,11 @@ def make_ln_research(groups, search_dir, target_dir, which="bam"):
                 if date.lower() + "_" in file or date + "_" in file:
                     target_file = file
                     sample_name = "S" + str(line) + "_" + id
-            sh.ln("-s", target_file + source_folder + sample_name + source_name,
+            try:
+                sh.ln("-s", target_file + source_folder + sample_name + source_name,
                   target_dir + "/" + group + "_%s" % which + "/" + type + "_" + s + target_name)
-
+            except FileExistsError:
+                pass
 
 def get_file_ln_info(args=None):
     ## file: use_sample_train.txt
@@ -64,9 +72,16 @@ def get_file_ln_info(args=None):
         make_ln_GeneticTest(groups, search_dir, target_dir, which="bam")
         make_ln_GeneticTest(groups, search_dir, target_dir, which="mpileup")
     else:
-        search_dir = glob("/work-z/shared/Mapping/*")
-        make_ln_research(groups, search_dir, target_dir, which="bam")
-        make_ln_research(groups, search_dir, target_dir, which="mpileup")
+        which = args.which
+        if which == "fastq":
+            search_dir = glob("/work-z/shared/FastqStat/*")
+            make_ln_research(groups, search_dir, target_dir, which="fastq", r="R1")
+            make_ln_research(groups, search_dir, target_dir, which="fastq", r="R2")
+        else:
+            search_dir = glob("/work-z/shared/Mapping/*")
+            make_ln_research(groups, search_dir, target_dir, which="bam")
+            make_ln_research(groups, search_dir, target_dir, which="mpileup")
+        #make_ln_research(groups, search_dir, target_dir, which="mpileup")
     return sample_info["group"]
 
 

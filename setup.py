@@ -9,7 +9,7 @@ setup_args = {}
 DIR = (dirname(__file__) or '.')
 setup_args.update(
     name='genecast',
-    version='0.1.3',
+    version='0.2.1',
     author='zhou tao',
     author_email='zhou.tao@genecast.com.cn',
     packages=[

@@ -7,7 +7,7 @@ import time
 from argparse import ArgumentParser
 import os
 
-__version__ = '0.1.3'
+__version__ = '0.2.1'
 
 
 def main():
@@ -31,7 +31,10 @@ def main():
         plot_coverage(args=args)
     elif subCommand == "prediction":
         from genecast_package.svm_analysis import prediction_module
-        prediction_module(args=None)
+        prediction_module(args=args)
+    elif subCommand == "maf":
+        from genecast_package.maftools import maf_main
+        maf_main(args=args)
     #elif subCommand == "circos":
      #   from genecast_package.snv_analysis import circos_data
       #  circos_data(args=args)
@@ -58,6 +61,7 @@ def pre_parser():
     add_snv(subparser)
     add_circos(subparser)
     add_prediction(subparser)
+    add_maf(subparser)
 
     return parser
 
@@ -72,7 +76,7 @@ def add_coverage(subparser):
     parser = subparser.add_parser('qc', help='plot depth voverage, need bam file')
     parser.add_argument('bams', nargs='*', help="bam files (*.bam)")
     parser.add_argument('-type', choices=('reads', 'base'), required=False, default="reads", help='reads or base, default=reads', type=str)
-    parser.add_argument('-panel', required=False, help='which panel, default=panel6', type=str, default="panel6")
+    parser.add_argument('-panel', required=False, help='which panel', type=str, default="panel6")
     #parser.add_argument('-depth', required=False, default=0, help='default=0', type=int)
     parser.add_argument('-n', required=False, default=150, help='bin for type=base, default=150', type=int)
     parser.add_argument('-o', "--out", required=False, default="", help='Uniformity Boxplot file name', type=str)
@@ -80,9 +84,43 @@ def add_coverage(subparser):
                         help='parallel anno fusion result')
 
 
+def add_maf(subparser):
+    parser = subparser.add_parser('maf', help='make file for maftools')
+    parser.add_argument("-a", '--group1', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.txt)")
+    parser.add_argument("-b", '--group2', nargs='*', help="snv resulut of annovar files (*snp*.hg19_multianno.txt)")
+    # snv参数
+    parser.add_argument("-r", '--ratio', default=0, type=float,
+                        help='filter somatic ratio  default=0')
+    parser.add_argument("-ljb2_pp2hdiv", default="B", type=str,
+                        help='filter ljb2_pp2hdiv  default=B')
+    parser.add_argument("-gnomAD_max", default=0.001, type=float,
+                        help='filter gnomAD_max  default=0.001')
+    parser.add_argument("-os", '--one_strand', default=0, type=int,
+                        help='strand preference filter if two strand both greater than default,'
+                             'wo believe in it is a somatic default=0')
+    parser.add_argument("-ts", '--two_strand', default=0, type=int,
+                        help='if one of the two strand greater than defailt'
+                             ',whatever wo believe in it is a somatic default=0')
+    parser.add_argument("-dt", '--data_type', default='snv', type=str,
+                        choices=('snv', 'snp', "indel"),
+                        help='snv contain snp and indel  default=snv')
+    parser.add_argument('-hg', '--host_gene', required=True, type=str,
+                        help='host gene file, please make sure it only contain one colomn and its title must be gene,'
+                             'or panal bed file also be ok')
+    parser.add_argument("-locus", default=False, type=bool,
+                        choices=(False, True),
+                        help='if True, all calculate will base on locus level')
+    parser.add_argument("-somatic", default='Y', type=str,
+                        choices=('y', 'n'),
+                        help='if you only have Blood cell and cfdna you should choose n else you have Blood cell and cfdna you should choose y; default=y')
+    parser.add_argument('-circos', default=False, type=bool,
+                        choices=(True, False), help="if you need plot circos, please choose True, depault=False")
+
+
 def add_make_ln(subparser):
     parser = subparser.add_parser('ln', help='make ln module, the template file please contact the author')
     parser.add_argument('-sf', '--sample_file', required=True, help='the dir of group1', type=str)
+    parser.add_argument('-w', '--which', required=False, help='which file,default=bam and mpileup', type=str)
     parser.add_argument('-r', '--research', choices=("yes", "no"), required=False, default="yes",
                         help='if you sample is scientific research cooperation please choose yes,else choose no')
 
@@ -126,6 +164,10 @@ def add_snv(subparser):
     # snv参数
     parser.add_argument("-r", '--ratio', default=0, type=float,
                         help='filter somatic ratio  default=0')
+    parser.add_argument("-ljb2_pp2hdiv", default="B", type=str,
+                        help='filter ljb2_pp2hdiv  default=B')
+    parser.add_argument("-gnomAD_max", default=0.001, type=float,
+                        help='filter gnomAD_max  default=0.001')
     parser.add_argument("-os", '--one_strand', default=0, type=int,
                         help='strand preference filter if two strand both greater than default,'
                              'wo believe in it is a somatic default=0')
@@ -161,6 +203,9 @@ def add_cnv(subparser):
                         choices=('log2', 'cn'),
                         help='if you choose cn, please must use cnvkit call the cnr file and the call result filename '
                              'must be *call, if you choose, the target filename must be *cnr, default is log2')
+    parser.add_argument("-locus", default=False, type=bool,
+                        choices=(False, True),
+                        help='if True, all calculate will base on locus level')
     add_common_parameter(parser)
 
 
@@ -176,6 +221,10 @@ def add_common_parameter(parser):
                              'default=0')
     parser.add_argument("-cmp", default="bwr", type=str,
                         help='colormaps for heatmap, default=bwr, refer http://matplotlib.org/examples/color/colormaps_reference.html')
+    parser.add_argument("-ac", default=False, choices=("blue", "red", "green", "grey"),
+                        help='color for group_a')
+    parser.add_argument("-bc", default=False, choices=("blue", "red", "green", "grey"),
+                        help='color for group_b, must use with -ac')
     parser.add_argument('-fsm', "--feature_selection_method", required=False,
                         choices=('wilcox', "fisher", 'pearsonr', "Lasso", "logistic", "RandomizedLasso", "RandomForest", "Wrapper", "variance"),
                         type=str, default="logistic",

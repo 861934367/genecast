@@ -63,7 +63,7 @@ def filter(data, file_name, args=None):
             B.append("ok")
     data["B"] = B
     try:
-        data = data.loc[data["B"] != "B"]
+        data = data.loc[data["B"] != args.ljb2_pp2hdiv]
     except TypeError:
         raise FileNoExist("after filter this file: %s no result" % file_name)
     ExAC_columns = [i for i in data.columns if "gnomAD" in i]
@@ -84,17 +84,26 @@ def filter(data, file_name, args=None):
         else:
             strand_filter.append(False)
     data["ratio"] = ratio
-    data["max"] = [False if i != "." and float(i) >= 0.001 else True for i in data["gnomAD_max"]]
+    data["max"] = [False if i != "." and float(i) >= args.gnomAD_max else True for i in data["gnomAD_max"]]
     data["ratio"] = [float(i.rstrip("%")) for i in data["ratio"]]
     data = data.loc[(strand_filter) & (data["ratio"] >= args.ratio) & (data["max"] == True)]
+    if args.subcommand == "maf":
+        data = data[['Chr', 'Start', 'End', 'Ref', 'Alt', "ratio"]]
+        data.columns = ["chr", "start", "end", "ref_allele", "alt_allele", "i_TumorVAF_WU"]
+        data["Tumor_Sample_Barcode"] = [file_name] * len(data)
+        return data
     if args.locus:
-        data = data[["Gene.refGene", "AAChange.refGene", "ratio"]]
-        p_p = re.compile(r'p.(.*?),')
-        data_site = {"gene": [], file_name:[]}
-        for gene, aa, ratio in zip(data["Gene.refGene"], data["AAChange.refGene"], data["ratio"]):
-            for a in p_p.findall(aa) + [aa.split(".")[-1]]:
-                data_site["gene"].append(gene + "_" + a); data_site[file_name].append(ratio)
-        return pd.DataFrame(data_site[file_name], index=data_site["gene"], columns=[file_name]).drop_duplicates()
+        data = data[['Chr', 'Start', 'End', 'Ref', 'Alt', "ratio"]]
+        data.columns = ['Chr', 'Start', 'End', 'Ref', 'Alt', file_name]
+        data["Start"] = data["Start"].astype(float)
+        data["End"] = data["End"].astype(float)
+        return data
+        # p_p = re.compile(r'p.(.*?),')
+        # data_site = {"gene": [], file_name:[]}
+        # for gene, aa, ratio in zip(data["Gene.refGene"], data["AAChange.refGene"], data["ratio"]):
+            # for a in p_p.findall(aa) + [aa.split(".")[-1]]:
+                # data_site["gene"].append(gene + "_" + a); data_site[file_name].append(ratio)
+        # return pd.DataFrame(data_site).drop_duplicates()
     if args.circos:
         data = data[['Chr', 'Start', 'End', 'Gene.refGene', "ratio"]]
         return data
@@ -115,6 +124,10 @@ def get_host_gene(args=None):
             raise MethodException('the format of your target file is wrong, '
                               'please make sure it only contain one colomn and its title must be gene,'
                               'or panal bed file also be ok')
+    elif args.subcommand == "snv" and args.locus:
+        gene_list = pd.read_table(args.host_gene, usecols=["GeneSymbol", 'Chr', 'Start', 'End', 'Ref', 'Alt', "gene"]).drop_duplicates()
+        gene_list["Start"] = gene_list["Start"].astype(float)
+        gene_list["End"] = gene_list["End"].astype(float)
     else:
         try:
             gene_list = pd.read_table(args.host_gene, names=["chr", "start", "end", "gene", "trans"])[["gene"]].drop_duplicates()
@@ -139,9 +152,17 @@ def _get_group_data(gene_data, g, args=None):
                 temp = pd.merge(temp, filter(merge_snp_indel(file, args=args), file_name, args=args), on=['Chr', 'Start', 'End', 'Gene.refGene'], how="outer")
         #gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), on=["Chr", "Gene.refGene"], how="left")
         else:
-            gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), left_on="gene", right_index=True, how="left")
+            if args.locus:
+                gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), on=['Chr', 'Start', 'End', 'Ref', 'Alt'], how="left")
+            else:
+                gene_data = pd.merge(gene_data, filter(merge_snp_indel(file, args=args), file_name, args=args), left_on="gene", right_index=True, how="left")
     if args.circos:
         gene_data = temp.loc[temp["Gene.refGene"].isin(gene_data["Gene.refGene"])]
+    if args.locus:
+        gene_data["gene"] = gene_data["GeneSymbol_"] + gene_data["gene"]
+        for item in ["GeneSymbol", 'Chr', 'Start', 'End', 'Ref', 'Alt']:
+            del gene_data[item]
+        #gene_data = gene_data.loc[temp["Gene.refGene"].isin(gene_data["Gene.refGene"])]
     return group, gene_data
 
 

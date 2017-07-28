@@ -46,22 +46,24 @@ def parser_call_cnr(file, args=None):
 
 def get_host_gene_cnv(args=None):
     gene_list = get_host_gene(args=args)
-    if args.data_type == "log2": fun = parser_cnr
-    else: fun = parser_call_cnr
+    if args.data_type == "log2": fun = parser_cnr; fillna_num = 0
+    else: fun = parser_call_cnr; fillna_num = 2
     a_group = []
     for file in args.group1:
         a_group.append(file.split("/")[-1].split(".")[0])
-        gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left")
+        gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left").fillna(fillna_num)
     b_group = []
     for file in args.group2:
         b_group.append(file.split("/")[-1].split(".")[0])
-        gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left")
+        gene_list = pd.merge(gene_list, fun(file, args=args), left_on="gene", right_index=True, how="left").fillna(fillna_num)
     gene_list.index = gene_list["gene"]
     del gene_list["gene"]
-    if 0 in gene_list.dropna(how="all").fillna(0):
-        data = gene_list.dropna(how="all").fillna(0).drop(0, axis=0)
-    else:
-        data = gene_list.dropna(how="all").fillna(0)
+    # if 0 in gene_list.dropna(how="all").fillna(0):
+        # data = gene_list.dropna(how="all").fillna(0).drop(0, axis=0)
+    # else:
+        # data = gene_list.dropna(how="all").fillna(0)
+    if args.data_type == "log2": data = gene_list.loc[~(gene_list.T==0).all()]
+    else: data = gene_list.loc[~(gene_list.T==2).all()]
     return data, a_group, b_group
 
 

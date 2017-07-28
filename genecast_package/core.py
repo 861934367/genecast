@@ -46,20 +46,22 @@ def pheatmap(data, length, col_cluster=True, xticklabels=True, yticklabels=True,
     if len(data) > 80:
         yticklabels = False
     vmin, vmax = data.unstack().quantile([.05, .95])
+    if args.z_score == 3:
+        vmin, vmax = 0, 4
     re = sns.clustermap(data, cmap=args.cmp, row_cluster=True, method=args.cluster_method, col_cluster=col_cluster, figsize=(13, 10), \
                         xticklabels=True, yticklabels=yticklabels, vmin=vmin, vmax=vmax, col_colors=color)
     re.ax_heatmap.set_xticklabels(re.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
     re.ax_heatmap.set_yticklabels(re.ax_heatmap.yaxis.get_majorticklabels(), rotation=0)
     if col_cluster == False:
         for group, number in length.items():
-            re.ax_col_colors.text((number[0] + number[1])/2 - len(group)/2, 1.1, group, size=30)
+            re.ax_col_colors.text((number[0] + number[1])/2 + 1.5 - len(group)/2, 1.2, group, size=30)
         re.savefig(name + "." + args.save)
     else:
         re.savefig(name + "_col_cluster." + args.save)
     plt.close()
 
 
-def make_col_color_heatmap(group_dic):
+def make_col_color_heatmap(group_dic, args=None):
     common_color = ["blue", "red", "green", "grey"]
     color = {}; length = {}
     temp = 0
@@ -70,6 +72,9 @@ def make_col_color_heatmap(group_dic):
         for sample in group:
             color[sample] = common_color[i]
         i += 1
+    if args.ac and args.bc:
+        color[group1] = args.ac
+        color[group2] = args.bc
     color = pd.Series(color)
     color.name = "group"
     return color, length
@@ -86,11 +91,17 @@ def pca(data, group_dic, n=None, args=None):
         group += g
     data = data[group]
     newData = pca.fit_transform(data.T)
-    colors = ["blue", "red", "green", 'turquoise', "grey"]
+    colors = {}
+    colors1 = ["blue", "red", "green", 'turquoise', "grey"]
     i = 0
     for name, number in length.items():
-        plt.scatter(newData[number[0]:number[1], 0], newData[number[0]:number[1], 1], label=name, color=colors[i])
+        colors[name] = colors1[i]
         i += 1
+    if args.ac and args.bc:
+        colors[group1] = args.ac
+        colors[group2] = args.bc
+    for name, number in length.items():
+        plt.scatter(newData[number[0]:number[1], 0], newData[number[0]:number[1], 1], label=name, color=colors[name])
     plt.title("PCA analysis", size=20)
     pc1 = 100*pca.explained_variance_ratio_[0]
     pc2 = 100*pca.explained_variance_ratio_[1]
@@ -109,17 +120,25 @@ def plot_box(data, which, outname, palette, regulation, group, args=None):
         how = "mean"
         for name, g in group.items():
             names.append(name)
-            box_data[name] = data[g].mean(0)
+            box_data[name] = data[g]
     else:
         how = "sum"
         for name, g in group.items():
             names.append(name)
-            box_data[name] = data[g].sum(0)
+            box_data[name] = data[g]
     z, p = ranksums(box_data[names[0]], box_data[names[1]])
-    data.to_csv(outname + "_box_data_%s_%s" % (regulation, how) + ".txt", sep="\t")
+    if p >= 0.05:
+        plt.close()
+        return
+    data.to_csv(outname + "_box_data_%s" % (regulation) + ".txt", sep="\t")
+    if args.ac and args.bc:
+        group1 = list(group.keys())[0]
+        group2 = list(group.keys())[1]
+        palette[group1] = args.ac
+        palette[group2] = args.bc
     sns.boxplot(data=pd.DataFrame(box_data), ax=ax1, width=0.2, linewidth=.5, palette=palette)
     ax1.set_title("Difference of %s (p = %f)" % (which, p), size=30)
-    ax1.set_ylabel('%s value(%s)' % (which, how), size=30)
+    ax1.set_ylabel('%s value' % (which), size=30)
     fig.autofmt_xdate(ha='center', rotation=0)
     plt.xticks(rotation=0, size=30)
     plt.legend()
@@ -138,17 +157,22 @@ def databox(raw, which, outname=None, group=None, args=None):
         else:
             down.append(gene); palette_down[group1] = "blue"; palette_down[group2] = "red"
     if len(palette_up) > 0:
-        plot_box(raw.ix[up], which, outname, palette_up, "up", group, args=args)
+        for i in up:
+            plot_box(raw.ix[i], which, i, palette_up, "up", group, args=args)
     if len(palette_down) > 0:
-        plot_box(raw.ix[down], which, outname, palette_down, "down", group, args=args)
+        for i in down:
+            plot_box(raw.ix[i], which, i, palette_down, "down", group, args=args)
 
 
 def save_data_pdf(data, name, length, color, group_dic, which, args=None):
     data.to_csv("%s.txt" % name, sep="\t")
     length = {key.split("/")[-1]: value for key, value in length.items()}
     group_dic = {key.split("/")[-1]: value for key, value in group_dic.items()}
-    pheatmap(data, length, col_cluster=True, color=color, name=name, args=args)
-    pheatmap(data, length, col_cluster=False, color=color, name=name, args=args)
+    try:
+        pheatmap(data, length, col_cluster=True, color=color, name=name, args=args)
+        pheatmap(data, length, col_cluster=False, color=color, name=name, args=args)
+    except MemoryError:
+        print("you gene need too much MemoryError and i, so pass and do next")
     pca(data, group_dic, n=name, args=args)
     databox(data, which, outname=name, group=group_dic, args=args)
 
@@ -158,19 +182,6 @@ def save_parameters(args=None):
     for arg in dir(args):
         if not arg.startswith("_"):
             f.write(arg + ": " + str(getattr(args, arg)) + "\n")
-    ##f.write("Important Parameters" + "\n" + 
-    ##        "============================" + "\n")    
-    ##f.write("group1:" + args.group1[0].split("/")[-2] + "\n" + "group2:" + args.group2[0].split("/")[-2] + "\n"  +
-    ##        "host_gene:" + args.host_gene + "\n" +
-    ##        "feature_selection_method:" + args.feature_selection_method + "\n" + 
-    ##        "prediction_method:" + args.prediction_method + "\n" + "outdir:" + args.outdir + "\n" + 
-    ##        "data_type:"+ args.data_type + "\n\n\n"
-    ##)
-    ##f.write("Optional Parameters: not all parameters will be use, the used parameters according to Important Parameters" + "\n" + 
-    ##        "============================" + "\n")
-    ##f.write("pvalue:" + str(args.pval) + "\n" + \
-    ##"penalty:" + args.penalty + "\n" + "C:" + str(args.C) + "\n" + "criterion:" + args.criterion + "\n" + \
-    ##"threshold:" + str(args.threshold) + "\n" + "n_folds:" + str(args.n_folds) + "\n")
     f.close()
 
 
@@ -204,7 +215,7 @@ def make_result_folder(args=None, which="cnv", fun=None):
     save_parameters(args=args)
     group_dic = {two_group[0]: a_group, two_group[1]: b_group}
     color_length[two_group[0]] = a_group; color_length[two_group[1]] = b_group
-    color, length = make_col_color_heatmap(group_dic)
+    color, length = make_col_color_heatmap(group_dic, args=args)
     save_data_pdf(gene_list, "host_gene_%s" % name, length, color, group_dic, which, args=args)
     pd.DataFrame({"gene":feature_gene}).to_csv("feature_gene_pval%0.2f.txt" % args.pval, sep="\t", index=False)
     feature_gene_cnv = gene_list.ix[feature_gene]

@@ -53,13 +53,16 @@ def plot(data, args=None, file=None):
 def multiprocessing_plot(file, args):
     if args.type == "reads":
         sam = pysam.AlignmentFile(file)
-        data = pd.read_table("/home/zhout/data/%s.bed" % args.panel, names=["chr", "start", "end", "gene", "transcript"])
+        data = pd.read_table("%s" % args.panel, names=["chr", "start", "end", "gene", "transcript"])
         data["reads"] = [sam.count(chr, start, end) / (end - start) for chr, start, end in zip(data["chr"], data["start"], data["end"])]
     elif args.type == "base":
-        re = sh.samtools("depth", file, "-b", "/home/zhout/data/%s.bed" % args.panel)
-        f = open(file.strip(".") + ".depth", "wb")
-        f.write(re.stdout); f.close()
-        data = pd.read_table(file.strip(".") + ".depth", names=["chr", "pos", "base"])
+        try:
+            data = pd.read_table(file.strip(".") + ".depth", names=["chr", "pos", "base"])
+        except:
+            re = sh.samtools("depth", file, "-b", "%s" % args.panel)
+            f = open(file.strip(".") + ".depth", "wb")
+            f.write(re.stdout); f.close()
+            data = pd.read_table(file.strip(".") + ".depth", names=["chr", "pos", "base"])
     else:
         raise TypeException("data type is wrong")
     plot(data, args=args, file=file)
